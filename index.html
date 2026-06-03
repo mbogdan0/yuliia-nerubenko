@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <link rel="icon" href="data:," />
+    <title>Yuliia Nerubenko Portfolio Demo</title>
+  </head>
+  <body>
+    <main id="app">
+      <section id="loading-screen" class="loading-screen" aria-live="polite" aria-label="Application loading status">
+        <div class="loading-indicator" aria-hidden="true"></div>
+      </section>
+
+      <div class="mobile-notice" id="mobile-notice">
+        <span>Animation demo. Best viewed on desktop.</span>
+        <button class="mobile-notice-close" type="button" aria-label="Dismiss mobile notice">×</button>
+      </div>
+
+      <nav class="tab-nav" aria-label="Application tabs">
+        <button class="tab-button is-active" type="button" data-tab="gallery">Gallery</button>
+        <button class="tab-button" type="button" data-tab="slot-demo">Slot Demo</button>
+      </nav>
+
+      <div id="game-root" aria-label="Animated symbol gallery"></div>
+
+      <div class="slot-demo-ui" aria-label="Slot demo controls and artist credit">
+        <div id="slot-controls" class="slot-controls is-hidden">
+          <button id="spin-button" class="spin-button" type="button">Spin</button>
+          <button id="spin-win-button" class="spin-button spin-win-button" type="button">Spin & Win</button>
+        </div>
+
+        <aside class="artist-badge" aria-label="Artist credit">
+          <strong>Yuliia Nerubenko</strong>
+          <span>2D Animator</span>
+          <a href="mailto:email@example.com">email@example.com</a>
+          <p>Portfolio preview of animated slot symbols in a simple reel demo.</p>
+        </aside>
+      </div>
+
+      <section id="gallery-panel" class="settings-panel" aria-label="Symbol gallery settings">
+        <header class="panel-header">
+          <strong>Yuliia Nerubenko</strong>
+          <span>2D Animator</span>
+          <a href="mailto:email@example.com">email@example.com</a>
+        </header>
+
+        <div class="settings-section view-section" aria-label="Preview mode">
+          <h2>Gallery View</h2>
+          <div class="segmented-control">
+            <button class="control-button is-active" type="button" data-mode="focus" aria-label="Selected symbol view">Selected</button>
+            <button class="control-button" type="button" data-mode="all" aria-label="All symbols view">All</button>
+          </div>
+        </div>
+
+        <div class="primary-control-group" aria-label="Symbol animation controls">
+          <div class="settings-section primary-section" aria-label="Symbol selector">
+            <h2>Symbol</h2>
+            <div id="symbol-buttons" class="symbol-group"></div>
+          </div>
+
+          <div class="settings-section primary-section" aria-label="Animation selector">
+            <h2>Animation</h2>
+            <div class="segmented-control">
+              <button class="control-button" type="button" data-animation="Idle">Idle</button>
+              <button class="control-button is-active" type="button" data-animation="Win">Win</button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <aside class="gallery-credit" aria-label="Artist credit">
+        <strong>Yuliia Nerubenko</strong>
+        <span>2D Animator</span>
+        <a href="mailto:email@example.com">email@example.com</a>
+        <p>Portfolio preview of animated slot symbols in a simple reel demo.</p>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

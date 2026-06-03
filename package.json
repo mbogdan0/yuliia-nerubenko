@@ -1,0 +1,25 @@
+{
+  "name": "yuliia-nerubenko",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
+  },
+  "dependencies": {
+    "@esotericsoftware/spine-pixi-v8": "^4.3.5",
+    "pixi.js": "^8.18.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.1",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.60.1",
+    "vite": "^6.3.5"
+  }
+}

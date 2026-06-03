@@ -1,0 +1,32 @@
+import type { Spine } from "@esotericsoftware/spine-pixi-v8";
+import { Container } from "pixi.js";
+import { getCachedSymbolBounds } from "../symbols/bounds";
+import { createManualSpine } from "../symbols/spine";
+import type { SymbolDefinition, SymbolPreview } from "../types";
+
+export function createSymbolPreview(symbol: SymbolDefinition): SymbolPreview {
+  const host = new Container();
+  const spine = createSymbolSpine(symbol);
+
+  host.addChild(spine);
+  host.label = symbol.label;
+  host.alpha = 0;
+
+  return { id: symbol.id, definition: symbol, host, spine, targetAlpha: 1 };
+}
+
+function createSymbolSpine(symbol: SymbolDefinition): Spine {
+  const spine = createManualSpine(symbol);
+
+  spine.label = symbol.label;
+
+  // Warm the shared fit-bounds cache from a stable reference pose (Idle, frame 0)
+  // so the gallery and the slot size every symbol from the same box, and so the
+  // fit never changes from a transient animation frame when the window is resized.
+  // GalleryTab.rebuildGallery applies the real preview animation right afterwards.
+  spine.state.setAnimation(0, "Idle", false);
+  spine.update(0);
+  getCachedSymbolBounds(symbol, spine);
+
+  return spine;
+}
