@@ -18,7 +18,7 @@ const IDLE_FADE_SPEED = 5.5;
 const LOOP_RESTART_DELAY_SECONDS = 1.2;
 
 export class GalleryTab {
-  private currentMode: GalleryMode = "focus";
+  private currentMode: GalleryMode = "all";
   private currentAnimation: AnimationName = "Win";
   private selectedSymbolId: SymbolId = getDefaultSymbol().id;
   private activePreviews: SymbolPreview[] = [];

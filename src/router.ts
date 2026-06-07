@@ -49,7 +49,7 @@ export function buildRouteHash(route: RouteState): string {
 }
 
 function createDefaultGalleryRoute(defaultSymbol: SymbolId): RouteState {
-  return createGalleryRoute("focus", defaultSymbol);
+  return createGalleryRoute("all", defaultSymbol);
 }
 
 function createGalleryRoute(mode: GalleryRouteState["mode"], selectedSymbolId: SymbolId): RouteState {
