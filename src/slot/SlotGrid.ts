@@ -6,9 +6,11 @@ import {
   CELL_W,
   REEL_COUNT,
   REEL_STOP_DELAY,
+  REEL_STOP_DELAY_JITTER,
   ROW_COUNT,
   SPIN_MIN_DURATION
 } from "./config";
+import { rand } from "../utils";
 import type { SymbolDefinition, SymbolId } from "../types";
 import { calculateSlotGridLayout, type SlotGridReserves } from "./layout";
 import { createSpinResult, type SpinMode } from "./results";
@@ -33,14 +35,13 @@ const FRAME_COLOR = 0xc9a227;
 const FRAME_WIDTH = 6;
 const FRAME_ALPHA = 0.35;
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+type PendingTimer = { remaining: number; resolve: () => void };
 
 export class SlotGrid {
   private gridRoot: Container;
   private reels: Reel[] = [];
   private winHighlights: Container[] = [];
+  private pendingTimers: PendingTimer[] = [];
   private readonly definitions: SymbolDefinition[];
 
   constructor(
@@ -108,15 +109,25 @@ export class SlotGrid {
     this.gridRoot.addChild(frame);
   }
 
+  private waitSeconds(sec: number): Promise<void> {
+    return new Promise((resolve) => {
+      this.pendingTimers.push({ remaining: sec, resolve });
+    });
+  }
+
   async spin(mode: SpinMode = "random"): Promise<SymbolId[][]> {
     for (const reel of this.reels) reel.spin();
 
-    await delay(SPIN_MIN_DURATION);
+    await this.waitSeconds(SPIN_MIN_DURATION / 1000);
 
     const result = createSpinResult(mode, this.definitions);
 
     for (let i = 0; i < this.reels.length; i++) {
-      if (i > 0) await delay(REEL_STOP_DELAY);
+      // Jitter the gap between stops so the cascade doesn't feel metronomic.
+      if (i > 0) {
+        const jitterDelay = Math.max(0, REEL_STOP_DELAY + rand(-REEL_STOP_DELAY_JITTER, REEL_STOP_DELAY_JITTER));
+        await this.waitSeconds(jitterDelay / 1000);
+      }
       await this.reels[i].stop(result[i]);
     }
 
@@ -151,6 +162,15 @@ export class SlotGrid {
 
   update(dt: number): void {
     for (const reel of this.reels) reel.update(dt);
+
+    for (let i = this.pendingTimers.length - 1; i >= 0; i--) {
+      const timer = this.pendingTimers[i];
+      timer.remaining -= dt;
+      if (timer.remaining <= 0) {
+        this.pendingTimers.splice(i, 1);
+        timer.resolve();
+      }
+    }
   }
 
   setReducedMotionWork(enabled: boolean): void {

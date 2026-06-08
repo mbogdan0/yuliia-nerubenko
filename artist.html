@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>Yuliia Nerubenko — 2D Animator</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #0e0e12;
+        color: #e8e8f0;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+      .card {
+        max-width: 480px;
+        width: 100%;
+        text-align: center;
+      }
+      h1 {
+        font-size: clamp(1.4rem, 5vw, 2rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.5rem;
+      }
+      .role {
+        font-size: 0.95rem;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 2rem;
+      }
+      .placeholder {
+        font-size: 1rem;
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 2.5rem;
+      }
+      .back-link {
+        font-size: 0.9rem;
+        color: #888;
+        text-decoration: none;
+        border-bottom: 1px solid #444;
+        padding-bottom: 1px;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .back-link:hover { color: #e8e8f0; border-color: #888; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Yuliia Nerubenko</h1>
+      <p class="role">2D Animator</p>
+      <p class="placeholder">Artist profile coming soon.</p>
+      <a class="back-link" href="./">← Back</a>
+    </div>
+  </body>
+</html>

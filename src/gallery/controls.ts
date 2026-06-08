@@ -17,16 +17,22 @@ export type GalleryControlState = {
 export type GalleryDomElements = {
   gameRoot: HTMLElement;
   settingsPanel: HTMLElement;
-  modeButtons: HTMLButtonElement[];
   animationButtons: HTMLButtonElement[];
   symbolButtonsContainer: HTMLElement;
 };
 
 export function renderSymbolButtons(elements: GalleryDomElements, symbols: SymbolDefinition[]): void {
+  const allButton = document.createElement("button");
+  allButton.className = "control-button symbol-button symbol-button--all";
+  allButton.type = "button";
+  allButton.dataset.mode = "all";
+  allButton.textContent = "All Symbols";
+
   elements.symbolButtonsContainer.replaceChildren(
-    ...symbols.map((symbol, index) => {
+    allButton,
+    ...symbols.map((symbol) => {
       const button = document.createElement("button");
-      button.className = `control-button symbol-button${index === 0 ? " is-active" : ""}`;
+      button.className = "control-button symbol-button";
       button.type = "button";
       button.dataset.symbol = symbol.id;
       button.textContent = `${symbol.emoji} ${symbol.label}`;
@@ -39,11 +45,10 @@ export function bindControls(
   elements: GalleryDomElements,
   callbacks: GalleryControlCallbacks
 ): void {
-  for (const button of elements.modeButtons) {
-    button.addEventListener("click", () => {
-      callbacks.onModeChange(getModeFromButton(button)).catch(reportError);
-    });
-  }
+  const allButton = elements.symbolButtonsContainer.querySelector<HTMLButtonElement>("[data-mode='all']");
+  allButton?.addEventListener("click", () => {
+    callbacks.onModeChange("all").catch(reportError);
+  });
 
   for (const button of elements.animationButtons) {
     button.addEventListener("click", () => {
@@ -62,26 +67,20 @@ export function bindControls(
 }
 
 export function updateControls(elements: GalleryDomElements, state: GalleryControlState): void {
-  for (const button of elements.modeButtons) {
-    button.classList.toggle("is-active", button.dataset.mode === state.mode);
-  }
+  const allButton = elements.symbolButtonsContainer.querySelector<HTMLButtonElement>("[data-mode='all']");
+  allButton?.classList.toggle("is-active", state.mode === "all");
 
   for (const button of elements.animationButtons) {
     button.classList.toggle("is-active", button.dataset.animation === state.animation);
   }
 
   for (const button of getSymbolButtons(elements)) {
-    button.classList.toggle("is-active", button.dataset.symbol === state.selectedSymbolId);
-    button.disabled = state.mode === "all";
+    button.classList.toggle("is-active", state.mode === "focus" && button.dataset.symbol === state.selectedSymbolId);
   }
 }
 
 function getSymbolButtons(elements: GalleryDomElements): HTMLButtonElement[] {
   return Array.from(elements.symbolButtonsContainer.querySelectorAll<HTMLButtonElement>("[data-symbol]"));
-}
-
-function getModeFromButton(button: HTMLButtonElement): GalleryMode {
-  return button.dataset.mode === "all" ? "all" : "focus";
 }
 
 function getAnimationFromButton(button: HTMLButtonElement): AnimationName {

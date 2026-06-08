@@ -179,38 +179,17 @@ button {
 }
 
 .panel-header {
-  display: grid;
-  gap: 2px;
+  display: block;
   padding-bottom: 10px;
   border-bottom: 1px solid rgb(var(--rgb-gold) / 14%);
-}
-
-.panel-header strong,
-.panel-header span,
-.panel-header a,
-.settings-section h2 {
-  margin: 0;
-}
-
-.panel-header strong {
-  color: var(--color-text);
-  font-size: 19px;
-  font-weight: 900;
-  letter-spacing: 0;
-  line-height: 1.08;
-}
-
-.panel-header span,
-.panel-header a {
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 750;
   line-height: 1.22;
-  text-decoration: none;
 }
 
-.panel-header a:hover {
-  color: var(--color-text-dim);
+.settings-section h2 {
+  margin: 0;
 }
 
 .settings-section {
@@ -245,13 +224,6 @@ button {
 .primary-section h2 {
   color: var(--color-text-dim);
   font-size: 12px;
-}
-
-.view-section {
-  padding: 9px;
-  border: 1px solid rgb(105 197 188 / 18%);
-  border-radius: 8px;
-  background: rgb(18 31 31 / 54%);
 }
 
 .settings-section h2 {
@@ -314,25 +286,6 @@ button {
   font-size: 13px;
 }
 
-.control-button[data-animation] {
-  border-color: rgb(99 218 198 / 34%);
-  background: rgb(22 38 39 / 92%);
-}
-
-.control-button[data-animation]:hover:not(:disabled):not(.is-active) {
-  border-color: rgb(127 245 221 / 48%);
-  background: rgb(22 38 39 / 92%);
-  box-shadow: 0 0 0 1px rgb(127 245 221 / 18%);
-}
-
-.control-button[data-animation].is-active {
-  color: #061817;
-  border-color: rgb(196 255 239 / 90%);
-  background: linear-gradient(180deg, #aaf6e7 0%, #31c3a7 100%);
-  box-shadow:
-    0 0 0 2px rgb(157 240 223 / 22%),
-    inset 0 1px 0 rgb(var(--rgb-white) / 40%);
-}
 
 .control-button:hover:not(:disabled):not(.is-active) {
   color: var(--color-text);
@@ -379,8 +332,26 @@ button {
     rgb(31 34 32 / 92%);
 }
 
-.symbol-button:disabled {
-  color: rgb(var(--rgb-cream) / 58%);
+.symbol-button--all {
+  grid-column: 1 / -1;
+  border-color: rgb(99 218 198 / 30%);
+  background: rgb(18 31 31 / 70%);
+  color: rgb(150 230 215 / 80%);
+}
+
+.symbol-button--all:hover:not(.is-active) {
+  border-color: rgb(127 245 221 / 50%);
+  color: rgb(150 230 215);
+  box-shadow: 0 0 0 1px rgb(127 245 221 / 16%);
+}
+
+.symbol-button--all.is-active {
+  color: #061817;
+  border-color: rgb(196 255 239 / 90%);
+  background: linear-gradient(180deg, #aaf6e7 0%, #31c3a7 100%);
+  box-shadow:
+    0 0 0 2px rgb(157 240 223 / 22%),
+    inset 0 1px 0 rgb(var(--rgb-white) / 40%);
 }
 
 .is-hidden {
@@ -417,12 +388,6 @@ button {
   line-height: 1.08;
 }
 
-.tab-button[data-tab="gallery"]:hover:not(.is-active) {
-  color: #9ee8d4;
-  border-color: rgb(49 195 167 / 30%);
-  background: rgb(49 195 167 / 10%);
-}
-
 .tab-button[data-tab="slot-demo"]:hover:not(.is-active) {
   color: var(--color-text);
   border-color: rgb(var(--rgb-gold) / 28%);
@@ -438,14 +403,6 @@ button {
     inset 0 1px 0 rgb(var(--rgb-white) / 28%);
 }
 
-.tab-button[data-tab="gallery"].is-active {
-  color: #061817;
-  border-color: rgb(196 255 239 / 90%);
-  background: linear-gradient(180deg, #aaf6e7 0%, #31c3a7 100%);
-  box-shadow:
-    0 0 0 1px rgb(157 240 223 / 22%),
-    inset 0 1px 0 rgb(var(--rgb-white) / 30%);
-}
 
 .tab-button.is-active::after {
   position: absolute;
@@ -468,7 +425,6 @@ button {
   right: clamp(14px, 2.4vw, 28px);
   z-index: 2;
   display: none;
-  gap: 2px;
   width: min(314px, calc(100vw - 28px));
   padding: 12px 14px;
   border: 1px solid rgb(var(--rgb-gold) / 18%);
@@ -476,38 +432,39 @@ button {
   color: rgb(var(--rgb-cream) / 78%);
   background: rgb(16 18 17 / 72%);
   backdrop-filter: blur(14px);
-}
-
-#app.is-slot-active .artist-badge {
-  display: grid;
-}
-
-.artist-badge strong {
-  color: var(--color-text);
-  font-size: 14px;
-  font-weight: 900;
-  letter-spacing: 0;
-  line-height: 1.08;
-}
-
-.artist-badge span,
-.artist-badge a,
-.artist-badge p {
-  color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 750;
   line-height: 1.25;
-  text-decoration: none;
 }
 
-.artist-badge p {
-  margin: 8px 0 0;
-  color: rgb(var(--rgb-cream) / 72%);
-  font-weight: 700;
+#app.is-slot-active .artist-badge {
+  display: block;
 }
 
-.artist-badge a:hover {
-  color: var(--color-text-dim);
+.artist-badge a,
+.gallery-credit a,
+.panel-header a {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--rgb-gold) / 45%);
+  text-underline-offset: 2px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+.artist-badge a::after,
+.gallery-credit a::after,
+.panel-header a::after {
+  content: " ↗";
+  font-size: 0.75em;
+  opacity: 0.6;
+  vertical-align: super;
+}
+
+.artist-badge a:hover,
+.gallery-credit a:hover,
+.panel-header a:hover {
+  color: var(--color-accent-light);
+  text-decoration-color: currentColor;
 }
 
 .gallery-credit {
@@ -716,21 +673,6 @@ button {
     padding: clamp(10px, 2vw, 12px);
   }
 
-  .artist-badge strong {
-    font-size: clamp(13px, 2.3vw, 14px);
-  }
-
-  .artist-badge span,
-  .artist-badge a,
-  .artist-badge p {
-    font-size: clamp(11px, 2vw, 12px);
-    line-height: 1.18;
-  }
-
-  #app.is-slot-active .artist-badge p {
-    margin-top: 6px;
-  }
-
   .settings-panel {
     position: relative;
     top: auto;
@@ -823,8 +765,7 @@ button {
   }
 
   .gallery-credit {
-    display: grid;
-    gap: 2px;
+    display: block;
     width: 100%;
     margin: 10px 0 0;
     padding: clamp(10px, 2vw, 12px);
@@ -833,33 +774,12 @@ button {
     color: rgb(var(--rgb-cream) / 78%);
     background: rgb(16 18 17 / 72%);
     backdrop-filter: blur(14px);
+    font-size: clamp(11px, 2vw, 12px);
+    font-weight: 750;
+    line-height: 1.18;
   }
 
   #app.is-slot-active .gallery-credit {
     display: none;
-  }
-
-  .gallery-credit strong {
-    color: var(--color-text);
-    font-size: clamp(13px, 2.3vw, 14px);
-    font-weight: 900;
-    letter-spacing: 0;
-    line-height: 1.08;
-  }
-
-  .gallery-credit span,
-  .gallery-credit a,
-  .gallery-credit p {
-    color: var(--color-text-secondary);
-    font-size: clamp(11px, 2vw, 12px);
-    font-weight: 750;
-    line-height: 1.18;
-    text-decoration: none;
-  }
-
-  .gallery-credit p {
-    margin: 6px 0 0;
-    color: rgb(var(--rgb-cream) / 72%);
-    font-weight: 700;
   }
 }

@@ -5,14 +5,21 @@ import {
   ROW_COUNT,
   SPIN_ACCEL_TIME,
   SPIN_CELLS_PER_SEC,
+  SPIN_SPEED_JITTER,
+  SPIN_STEP,
+  SPIN_WINDUP_CELLS,
+  SPIN_WINDUP_TIME,
   STOP_DURATION_MAX,
   STOP_DURATION_MIN,
+  STOP_EXTRA_CELLS_MAX,
   STOP_MIN_CELLS,
-  STOP_OVERSHOOT
+  STOP_OVERSHOOT,
+  STOP_OVERSHOOT_JITTER
 } from "./config";
+import { rand, randInt } from "../utils";
 import type { SymbolDefinition, SymbolId } from "../types";
 
-type ReelState = "idle" | "spinning" | "stopping" | "stopped";
+type ReelState = "idle" | "windup" | "spinning" | "stopping" | "stopped";
 
 // Cell pool: ROW_COUNT visible + one buffer above + one below for smooth scroll-in/out.
 const POOL_SIZE = ROW_COUNT + 2;
@@ -61,20 +68,26 @@ export class Reel extends Container {
 
   // free-spin
   private speed = 0;                        // cells/s
+  private spinSpeed = SPIN_CELLS_PER_SEC;   // jittered top speed, sampled per spin
   private accelElapsed = 0;
+
+  // wind-up (brief back-kick before launch)
+  private windupFromPos = 0;
+  private windupElapsed = 0;
 
   // stop tween
   private stopStartPos = 0;
   private stopTargetPos = 0;
   private stopDuration = 0;
   private stopElapsed = 0;
+  private stopOvershoot = STOP_OVERSHOOT;   // jittered per stop
   private resolveStop: (() => void) | null = null;
 
   constructor(definitions: SymbolDefinition[]) {
     super();
     this.definitions = definitions;
     for (let i = 0; i < POOL_SIZE; i++) {
-      const cell = new Cell(definitions);
+      const cell = new Cell();
       this.cells.push(cell);
       this.cellIndex.push(Number.NaN);
       this.addChild(cell);
@@ -112,9 +125,21 @@ export class Reel extends Container {
   }
 
   spin(): void {
-    this.state = "spinning";
+    // Slightly vary each reel's top speed so they don't free-spin in lockstep.
+    this.spinSpeed = SPIN_CELLS_PER_SEC * rand(1 - SPIN_SPEED_JITTER, 1 + SPIN_SPEED_JITTER);
     this.speed = 0;
     this.accelElapsed = 0;
+
+    // Recoil opposite to travel before launching, like a real reel. Skipped
+    // entirely (no wasted frame) when the wind-up is tuned to zero.
+    if (SPIN_WINDUP_CELLS > 0) {
+      this.state = "windup";
+      this.windupFromPos = this.scroll;
+      this.windupElapsed = 0;
+    } else {
+      this.state = "spinning";
+    }
+
     for (const cell of this.cells) cell.playIdle();
   }
 
@@ -123,9 +148,12 @@ export class Reel extends Container {
    * settled exactly on the result.
    */
   stop(result: SymbolId[]): Promise<void> {
-    // Land far enough ahead for a natural decel; write the result there so it
-    // scrolls into view rather than being swapped in at the end.
-    const landing = Math.ceil(this.scroll) + STOP_MIN_CELLS;
+    // Land far enough ahead (in the travel direction) for a natural decel; write
+    // the result there so it scrolls into view rather than being swapped at the
+    // end. A random extra cell or two varies the deceleration distance per stop.
+    const extra = randInt(0, STOP_EXTRA_CELLS_MAX);
+    const base = SPIN_STEP < 0 ? Math.floor(this.scroll) : Math.ceil(this.scroll);
+    const landing = base + SPIN_STEP * (STOP_MIN_CELLS + extra);
     for (let r = 0; r < ROW_COUNT; r++) {
       const si = landing + r;
       this.strip.set(si, result[r]);
@@ -138,14 +166,16 @@ export class Reel extends Container {
 
     this.stopStartPos = this.scroll;
     this.stopTargetPos = landing;
+    // Vary the landing bounce a touch so the "thunk" isn't identical every stop.
+    this.stopOvershoot = STOP_OVERSHOOT * rand(1 - STOP_OVERSHOOT_JITTER, 1 + STOP_OVERSHOOT_JITTER);
 
     // Match the tween's initial velocity to the current spin speed so the
     // hand-off from free-spin to deceleration is seamless (no surge/jerk).
-    // easeOutBack: f'(0) = STOP_OVERSHOOT + 3  ⇒  v(0) = (s+3)·distance/duration.
-    const distance = landing - this.scroll;
-    const v = Math.max(this.speed, SPIN_CELLS_PER_SEC);
+    // easeOutBack: f'(0) = stopOvershoot + 3  ⇒  v(0) = (s+3)·distance/duration.
+    const distance = Math.abs(landing - this.scroll);
+    const v = Math.max(this.speed, this.spinSpeed);
     this.stopDuration = Math.min(
-      Math.max(((STOP_OVERSHOOT + 3) * distance) / v, STOP_DURATION_MIN),
+      Math.max(((this.stopOvershoot + 3) * distance) / v, STOP_DURATION_MIN),
       STOP_DURATION_MAX
     );
     this.stopElapsed = 0;
@@ -166,33 +196,38 @@ export class Reel extends Container {
   update(dt: number): void {
     let isMoving = false;
 
-    if (this.state === "spinning") {
+    if (this.state === "windup") {
+      isMoving = true;
+      this.windupElapsed = Math.min(this.windupElapsed + dt, SPIN_WINDUP_TIME);
+      // Ease backward (opposite to travel), then hand off to the accel ramp.
+      const eased = easeOut(this.windupElapsed / SPIN_WINDUP_TIME, 2);
+      this.scroll = this.windupFromPos - SPIN_STEP * SPIN_WINDUP_CELLS * eased;
+      this.layoutCells();
+      if (this.windupElapsed >= SPIN_WINDUP_TIME) {
+        this.state = "spinning";
+        this.speed = 0;
+        this.accelElapsed = 0;
+      }
+    } else if (this.state === "spinning") {
       isMoving = true;
       if (this.accelElapsed < SPIN_ACCEL_TIME) {
         this.accelElapsed = Math.min(this.accelElapsed + dt, SPIN_ACCEL_TIME);
-        this.speed = SPIN_CELLS_PER_SEC * easeOut(this.accelElapsed / SPIN_ACCEL_TIME, 3);
+        this.speed = this.spinSpeed * easeOut(this.accelElapsed / SPIN_ACCEL_TIME, 3);
       } else {
-        this.speed = SPIN_CELLS_PER_SEC;
+        this.speed = this.spinSpeed;
       }
-      this.scroll += this.speed * dt;
+      this.scroll += SPIN_STEP * this.speed * dt;
       this.layoutCells();
     } else if (this.state === "stopping") {
       isMoving = true;
       this.stopElapsed = Math.min(this.stopElapsed + dt, this.stopDuration);
-      const eased = easeOutBack(this.stopElapsed / this.stopDuration, STOP_OVERSHOOT);
+      const eased = easeOutBack(this.stopElapsed / this.stopDuration, this.stopOvershoot);
       this.scroll = this.stopStartPos + (this.stopTargetPos - this.stopStartPos) * eased;
       this.layoutCells();
 
       if (this.stopElapsed >= this.stopDuration) {
-        this.scroll = this.stopTargetPos; // exact integer alignment
-        this.layoutCells();
-        this.pruneStrip();
-        this.state = "stopped";
-        for (const cell of this.cells) cell.playIdle();
+        this.settle();
         isMoving = false;
-        const cb = this.resolveStop;
-        this.resolveStop = null;
-        cb?.();
       }
     }
 
@@ -200,6 +235,28 @@ export class Reel extends Container {
     if (spineDt === null) return;
 
     for (const cell of this.cells) cell.update(spineDt);
+  }
+
+  /** Lock the reel exactly onto its result, then fire the landing hook. */
+  private settle(): void {
+    this.scroll = this.stopTargetPos; // exact integer alignment
+    this.layoutCells();
+    this.pruneStrip();
+    this.state = "stopped";
+    this.land();
+    const cb = this.resolveStop;
+    this.resolveStop = null;
+    cb?.();
+  }
+
+  /**
+   * Fires once at the exact frame the reel locks onto its result — the seam for a
+   * future "Land" impact (a screen/reel shake or squash, or a per-symbol Land clip
+   * on the visible rows via getVisibleCell(0..ROW_COUNT-1)). For now it just
+   * restores the looping Idle on every pool cell.
+   */
+  private land(): void {
+    for (const cell of this.cells) cell.playLand();
   }
 
   private getSpineUpdateDelta(dt: number, isMoving: boolean): number | null {

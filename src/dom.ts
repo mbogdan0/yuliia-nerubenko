@@ -33,7 +33,6 @@ export function getAppDomRefs(): AppDomRefs {
     galleryElements: {
       gameRoot,
       settingsPanel: galleryPanel,
-      modeButtons: getButtons("[data-mode]"),
       animationButtons: getButtons("[data-animation]"),
       symbolButtonsContainer: requiredElement<HTMLElement>("#symbol-buttons")
     },

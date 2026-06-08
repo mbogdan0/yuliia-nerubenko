@@ -28,6 +28,11 @@ const GRID_FILL_W = 0.84;
 // from dominating the cell.
 const GRID_SCALE_CAP = 0.78;
 const COMPACT_FOCUS_SIZE_FACTOR = 0.8;
+// Largest on-screen side (in app.screen / logical CSS px) a symbol preview may
+// reach. Symbol art isn't authored for huge sizes. Logical px keeps the physical
+// size consistent across DPR — autoDensity handles density, so do NOT scale this
+// by devicePixelRatio.
+const MAX_SYMBOL_DISPLAY_SIZE = 265;
 
 export function getCompactGalleryStageHeight(
   previewCount: number,
@@ -143,8 +148,9 @@ export function positionPreview(
   const width = Math.max(bounds.width, 1);
   const height = Math.max(bounds.height, 1);
   const fitScale = Math.min(maxWidth / width, maxHeight / height);
+  const sizeCapScale = MAX_SYMBOL_DISPLAY_SIZE / Math.max(width, height);
   const modeCap = currentMode === "focus" ? 1 : GRID_SCALE_CAP;
-  const scale = Math.min(fitScale, modeCap);
+  const scale = Math.min(fitScale, modeCap, sizeCapScale);
 
   preview.host.x = 0;
   preview.host.y = 0;
