@@ -1,28 +1,31 @@
 import { Spine, type SpineOptions } from "@esotericsoftware/spine-pixi-v8";
-import { getSpineAssetSource } from "./assets";
-import type { SymbolDefinition, SymbolId } from "../types";
+import { getAtlasSource } from "./assets";
+import type { SymbolDefinition, SymbolResolution } from "../types";
 
-const spineOptionsCache = new Map<SymbolId, SpineOptions>();
+// Keyed by `${id}:${resolution}` — the skeleton is shared but each resolution
+// binds a different atlas, so options must not collide across resolutions.
+const spineOptionsCache = new Map<string, SpineOptions>();
 
-export function createManualSpine(symbol: SymbolDefinition): Spine {
-  return new Spine(getManualSpineOptions(symbol));
+export function createManualSpine(symbol: SymbolDefinition, resolution: SymbolResolution): Spine {
+  return new Spine(getManualSpineOptions(symbol, resolution));
 }
 
-function getManualSpineOptions(symbol: SymbolDefinition): SpineOptions {
-  const cachedOptions = spineOptionsCache.get(symbol.id);
+function getManualSpineOptions(symbol: SymbolDefinition, resolution: SymbolResolution): SpineOptions {
+  const cacheKey = `${symbol.id}:${resolution}`;
+  const cachedOptions = spineOptionsCache.get(cacheKey);
   if (cachedOptions) {
     return cachedOptions;
   }
 
-  const asset = getSpineAssetSource(symbol);
+  const atlas = getAtlasSource(symbol, resolution);
 
   const options = Spine.createOptions({
-    skeleton: asset.skeletonAlias,
-    atlas: asset.atlasAlias,
+    skeleton: symbol.asset.skeletonAlias,
+    atlas: atlas.atlasAlias,
     autoUpdate: false,
     scale: 1
   });
 
-  spineOptionsCache.set(symbol.id, options);
+  spineOptionsCache.set(cacheKey, options);
   return options;
 }

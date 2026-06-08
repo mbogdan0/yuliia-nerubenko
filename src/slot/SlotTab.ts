@@ -11,7 +11,8 @@ import {
   SLOT_COMPACT_SIDE_PADDING,
   SLOT_COMPACT_TOP_RESERVE,
   SLOT_DESKTOP_SIDE_PADDING,
-  SLOT_MAX_RENDER_RESOLUTION
+  SLOT_MAX_RENDER_RESOLUTION,
+  SLOT_RESOLUTION
 } from "./config";
 import type { SlotGridReserves } from "./layout";
 import { checkHorizontalWins } from "./paylines";
@@ -42,7 +43,7 @@ export class SlotTab {
   ) {}
 
   async init(): Promise<void> {
-    await ensureSpineAssets(symbolDefinitions);
+    await ensureSpineAssets(symbolDefinitions, SLOT_RESOLUTION);
 
     this.grid = new SlotGrid(symbolDefinitions, this.layer, this.app);
     this.onResize();

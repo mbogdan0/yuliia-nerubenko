@@ -1,5 +1,5 @@
 import { Assets } from "pixi.js";
-import type { SpineAssetSource, SymbolDefinition } from "../types";
+import type { AtlasAssetSource, SpineAssetSource, SymbolDefinition, SymbolResolution } from "../types";
 
 export function symbolAsset(symbolId: string): SpineAssetSource {
   const symbolPath = `${import.meta.env.BASE_URL}symbols/${symbolId}`;
@@ -7,37 +7,48 @@ export function symbolAsset(symbolId: string): SpineAssetSource {
   return {
     skeletonAlias: `${symbolId}Skeleton`,
     skeletonSrc: `${symbolPath}/skeleton.skel`,
-    atlasAlias: `${symbolId}Atlas`,
-    atlasSrc: `${symbolPath}/atlas.atlas`
+    atlases: {
+      high: atlasSource(symbolId, symbolPath, "high"),
+      low: atlasSource(symbolId, symbolPath, "low")
+    }
   };
 }
 
-export function getSpineAssetSource(symbol: SymbolDefinition): SpineAssetSource {
-  return symbol.asset;
+function atlasSource(symbolId: string, symbolPath: string, resolution: SymbolResolution): AtlasAssetSource {
+  return {
+    atlasAlias: `${symbolId}Atlas:${resolution}`,
+    atlasSrc: `${symbolPath}/${resolution}/atlas.atlas`
+  };
 }
 
-export async function ensureSpineAssets(symbols: SymbolDefinition[]): Promise<void> {
-  const assetSources = new Map<string, SpineAssetSource>();
-  for (const symbol of symbols) {
-    assetSources.set(symbol.asset.skeletonAlias, symbol.asset);
-  }
-  await Promise.all(Array.from(assetSources.values(), loadSpineAssetSource));
+export function getAtlasSource(symbol: SymbolDefinition, resolution: SymbolResolution): AtlasAssetSource {
+  return symbol.asset.atlases[resolution];
 }
 
-async function loadSpineAssetSource(asset: SpineAssetSource): Promise<void> {
-  // The atlas and skeleton are independent files; their only dependency is at
-  // Spine construction time (later). Load them in parallel rather than serially.
+export async function ensureSpineAssets(
+  symbols: SymbolDefinition[],
+  resolution: SymbolResolution
+): Promise<void> {
+  // One skeleton is shared by both resolutions; only the chosen atlas is loaded.
+  // The atlas and skeleton are independent files (their only dependency is at
+  // Spine construction time), so every unique asset loads in parallel.
+  const queued = new Set<string>();
   const pending: Promise<unknown>[] = [];
 
-  if (!Assets.cache.has(asset.atlasAlias)) {
-    Assets.add({ alias: asset.atlasAlias, src: asset.atlasSrc });
-    pending.push(Assets.load(asset.atlasAlias));
-  }
-
-  if (!Assets.cache.has(asset.skeletonAlias)) {
-    Assets.add({ alias: asset.skeletonAlias, src: asset.skeletonSrc });
-    pending.push(Assets.load(asset.skeletonAlias));
+  for (const symbol of symbols) {
+    queueAsset(symbol.asset.skeletonAlias, symbol.asset.skeletonSrc, queued, pending);
+    const atlas = symbol.asset.atlases[resolution];
+    queueAsset(atlas.atlasAlias, atlas.atlasSrc, queued, pending);
   }
 
   await Promise.all(pending);
+}
+
+function queueAsset(alias: string, src: string, queued: Set<string>, pending: Promise<unknown>[]): void {
+  if (queued.has(alias) || Assets.cache.has(alias)) {
+    return;
+  }
+  queued.add(alias);
+  Assets.add({ alias, src });
+  pending.push(Assets.load(alias));
 }

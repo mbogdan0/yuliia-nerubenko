@@ -3,7 +3,7 @@ import { getCachedSymbolBounds } from "../symbols/bounds";
 import { symbolsById, getDefaultSymbol } from "../symbols/definitions";
 import { createManualSpine } from "../symbols/spine";
 import type { SymbolId } from "../types";
-import { CELL_H, CELL_W } from "./config";
+import { CELL_H, CELL_W, SLOT_RESOLUTION } from "./config";
 
 // Fraction of the cell dimensions the spine may fill.
 const CELL_FILL_FACTOR = 0.82;
@@ -28,7 +28,7 @@ export function acquireCellSpine(id: SymbolId): Spine {
 
   // Create new spine if pool is empty
   const definition = symbolsById.get(id) ?? getDefaultSymbol();
-  const newSpine = createManualSpine(definition);
+  const newSpine = createManualSpine(definition, SLOT_RESOLUTION);
 
   newSpine.state.setAnimation(0, "Idle", false);
   newSpine.update(0);

@@ -1,3 +1,8 @@
+import type { SymbolResolution } from "../types";
+
+// The Slot demo renders the optimized low-resolution atlas (the Gallery uses high).
+export const SLOT_RESOLUTION: SymbolResolution = "low";
+
 export const REEL_COUNT = 3;
 export const ROW_COUNT = 3;
 export const CELL_W = 200 * 0.93;          // cell width in px

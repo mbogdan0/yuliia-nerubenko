@@ -1,0 +1,16 @@
+atlas.png
+size:264,496
+filter:Linear,Linear
+pma:true
+glare_o
+bounds:2,65,133,166
+offsets:0,1,133,167
+leaf_o
+bounds:139,90,99,141
+orange
+bounds:2,235,260,259
+particle
+bounds:139,16,70,70
+offsets:2,3,72,77
+tail_o
+bounds:2,2,58,59

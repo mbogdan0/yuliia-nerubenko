@@ -12,12 +12,12 @@ function defineSymbol(
 
 export const symbolDefinitions: SymbolDefinition[] = [
   defineSymbol("wild",       "Wild",       "🌶️", ["frame_chile", "chile", "chile_tail", "text_bg"]),
-  defineSymbol("seven",      "Seven",      "7️⃣", ["7", "7_outline"]),
+  defineSymbol("seven",      "Seven",      "7️⃣", ["7_body", "7_outline"]),
+  defineSymbol("star",       "Star",       "⭐", ["star2", "star_outline2"]),
   defineSymbol("cherry",     "Cherry",     "🍒", ["cherry1", "cherry2", "tail_c", "leaf_c", "glare1_c", "glare2_c"]),
   defineSymbol("lemon",      "Lemon",      "🍋", ["lemon", "tail_l", "leaf_l", "glare_l"]),
-  defineSymbol("orange",     "Orange",     "🍊", ["orange", "tail_o", "leaf_o", "glare_o"]),
   defineSymbol("plum",       "Plum",       "🟣", ["plum", "tail_p", "leaf_p", "glare_p"]),
-  defineSymbol("star",       "Star",       "⭐", ["star", "star_outline"]),
+  defineSymbol("orange",     "Orange",     "🍊", ["orange", "tail_o", "leaf_o", "glare_o"]),
   defineSymbol("watermelon", "Watermelon", "🍉", ["watermelon", "seed_1", "seed_2", "seed_3", "glare_w"]),
 ];
 

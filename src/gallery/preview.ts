@@ -2,11 +2,11 @@ import type { Spine } from "@esotericsoftware/spine-pixi-v8";
 import { Container } from "pixi.js";
 import { getCachedSymbolBounds } from "../symbols/bounds";
 import { createManualSpine } from "../symbols/spine";
-import type { SymbolDefinition, SymbolPreview } from "../types";
+import type { SymbolDefinition, SymbolPreview, SymbolResolution } from "../types";
 
-export function createSymbolPreview(symbol: SymbolDefinition): SymbolPreview {
+export function createSymbolPreview(symbol: SymbolDefinition, resolution: SymbolResolution): SymbolPreview {
   const host = new Container();
-  const spine = createSymbolSpine(symbol);
+  const spine = createSymbolSpine(symbol, resolution);
 
   host.addChild(spine);
   host.label = symbol.label;
@@ -15,8 +15,8 @@ export function createSymbolPreview(symbol: SymbolDefinition): SymbolPreview {
   return { id: symbol.id, definition: symbol, host, spine, targetAlpha: 1 };
 }
 
-function createSymbolSpine(symbol: SymbolDefinition): Spine {
-  const spine = createManualSpine(symbol);
+function createSymbolSpine(symbol: SymbolDefinition, resolution: SymbolResolution): Spine {
+  const spine = createManualSpine(symbol, resolution);
 
   spine.label = symbol.label;
 

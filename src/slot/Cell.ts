@@ -47,6 +47,11 @@ export class Cell extends Container {
   playWin(): void {
     if (!this.activeSpine) return;
     this.activeSpine.state.setAnimation(0, "Win", false);
+    // Win is a one-shot that would otherwise freeze on its last frame; queue the
+    // looping Idle to follow when the symbol defines one, so the cell keeps idling.
+    if (this.activeSpine.skeleton.data.findAnimation("Idle")) {
+      this.activeSpine.state.addAnimation(0, "Idle", true, 0);
+    }
     this.activeAnimation = "Win";
   }
 

@@ -1,5 +1,5 @@
 import { Container, Ticker, type Application } from "pixi.js";
-import type { AnimationName, GalleryMode, SymbolId, SymbolPreview } from "../types";
+import type { AnimationName, GalleryMode, SymbolId, SymbolPreview, SymbolResolution } from "../types";
 import { ensureSpineAssets } from "../symbols/assets";
 import { getDefaultSymbol, symbolDefinitions, symbolsById } from "../symbols/definitions";
 import { getCompactGalleryStageHeight, layoutPreviews } from "./layout";
@@ -21,6 +21,9 @@ export type GalleryRouteState = {
 const WIN_FADE_SPEED = 7.5;
 const IDLE_FADE_SPEED = 5.5;
 const LOOP_RESTART_DELAY_SECONDS = 1.2;
+
+// The Gallery renders the full-resolution atlas (the Slot demo uses low).
+const GALLERY_RESOLUTION: SymbolResolution = "high";
 
 export class GalleryTab {
   private currentMode: GalleryMode = "all";
@@ -129,10 +132,10 @@ export class GalleryTab {
 
     const symbols = this.getSymbolsForCurrentMode();
 
-    await ensureSpineAssets(symbols);
+    await ensureSpineAssets(symbols, GALLERY_RESOLUTION);
     if (generation !== this.rebuildGeneration) return;
 
-    this.activePreviews = symbols.map((symbol) => createSymbolPreview(symbol));
+    this.activePreviews = symbols.map((symbol) => createSymbolPreview(symbol, GALLERY_RESOLUTION));
     this.cachePlaybackDurations();
     this.activePreviews.forEach((preview) => {
       this.applyAnimation(preview, 0);
