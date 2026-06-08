@@ -36,9 +36,9 @@ export const SPIN_MIN_DURATION = 650; // ms of free spin before reels begin stop
 export const REEL_STOP_DELAY = 150;    // ms between sequential reel stops
 
 export const SLOT_DESKTOP_SIDE_PADDING = 24;
-export const SLOT_COMPACT_SIDE_PADDING = 10;
-// Breathing room (CSS px) between the reels and the measured surrounding UI.
-export const SLOT_COMPACT_RESERVE_GAP = 12;
+export const SLOT_COMPACT_SIDE_PADDING = 18;
+export const SLOT_COMPACT_TOP_RESERVE = 16;
+export const SLOT_COMPACT_BOTTOM_RESERVE = 34;
 
 export const SLOT_MAX_RENDER_RESOLUTION = 2;
 export const SLOT_COMPACT_RENDER_RESOLUTION = 1.5;

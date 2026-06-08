@@ -6,9 +6,8 @@ export type SlotGridLayout = {
   scale: number;
 };
 
-// Space (CSS px) the surrounding UI occupies, so the grid fits the free area.
-// Desktop passes zero top/bottom reserves; mobile measures the real tab nav and
-// bottom controls (see SlotTab.computeReserves).
+// Internal stage gutters (CSS px) so the reels fit inside the canvas without
+// visually colliding with surrounding DOM controls.
 export type SlotGridReserves = {
   topReserve: number;
   bottomReserve: number;

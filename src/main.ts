@@ -3,7 +3,6 @@ import { getAppDomRefs } from "./dom";
 import { GalleryTab } from "./gallery/GalleryTab";
 import { createAppLayers } from "./layers";
 import { completeLoading, showLoadingError } from "./loadingScreen";
-import { bindMobileNotice } from "./mobileNotice";
 import { reportError } from "./reportError";
 import { buildRouteHash, parseRouteHash, type AppTab, type RouteState } from "./router";
 import { SLOT_MAX_RENDER_RESOLUTION } from "./slot/config";
@@ -29,10 +28,9 @@ const slotDemo = new SlotTab(app, layers.slotLayer, dom.slotButtons, {
   gameRoot: dom.gameRoot
 });
 
-bindMobileNotice(dom.mobileNotice, dom.mobileNoticeClose);
-
 function switchTab(tabId: AppTab, updateHash = true): void {
   activeTab = tabId;
+  slotDemo.setActive(tabId === "slot-demo");
 
   applyActiveTab(tabId, {
     dom,

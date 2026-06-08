@@ -12,8 +12,6 @@ export type AppDomRefs = {
   galleryPanel: HTMLElement;
   galleryElements: GalleryDomElements;
   loadingScreen: HTMLElement;
-  mobileNotice: HTMLElement;
-  mobileNoticeClose: HTMLButtonElement;
   slotButtons: SlotButtonElements;
   slotControls: HTMLElement;
   slotDemoUi: HTMLElement;
@@ -37,8 +35,6 @@ export function getAppDomRefs(): AppDomRefs {
       symbolButtonsContainer: requiredElement<HTMLElement>("#symbol-buttons")
     },
     loadingScreen: requiredElement<HTMLElement>("#loading-screen"),
-    mobileNotice: requiredElement<HTMLElement>("#mobile-notice"),
-    mobileNoticeClose: requiredElement<HTMLButtonElement>(".mobile-notice-close"),
     slotButtons: {
       spinButton: requiredElement<HTMLButtonElement>("#spin-button"),
       spinWinButton: requiredElement<HTMLButtonElement>("#spin-win-button")

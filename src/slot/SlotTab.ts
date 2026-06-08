@@ -6,9 +6,10 @@ import { symbolDefinitions } from "../symbols/definitions";
 import type { SymbolId } from "../types";
 import {
   REEL_COUNT,
+  SLOT_COMPACT_BOTTOM_RESERVE,
   SLOT_COMPACT_RENDER_RESOLUTION,
-  SLOT_COMPACT_RESERVE_GAP,
   SLOT_COMPACT_SIDE_PADDING,
+  SLOT_COMPACT_TOP_RESERVE,
   SLOT_DESKTOP_SIDE_PADDING,
   SLOT_MAX_RENDER_RESOLUTION
 } from "./config";
@@ -29,6 +30,9 @@ type SlotLayoutRefs = {
 export class SlotTab {
   private grid: SlotGrid | null = null;
   private resizeFrame: number | null = null;
+  private activationFrame: number | null = null;
+  private isActive = false;
+  private isSpinning = false;
 
   constructor(
     private readonly app: Application,
@@ -59,6 +63,26 @@ export class SlotTab {
     this.grid?.update(ticker.deltaMS / 1000);
   }
 
+  setActive(active: boolean): void {
+    this.isActive = active;
+
+    if (this.activationFrame !== null) {
+      window.cancelAnimationFrame(this.activationFrame);
+      this.activationFrame = null;
+    }
+
+    if (!active) {
+      this.setControlsDisabled(true);
+      return;
+    }
+
+    this.setControlsDisabled(true);
+    this.activationFrame = window.requestAnimationFrame(() => {
+      this.activationFrame = null;
+      this.syncControlsDisabled();
+    });
+  }
+
   onResize(): void {
     this.applyResize();
 
@@ -81,8 +105,8 @@ export class SlotTab {
   private computeReserves(): SlotGridReserves {
     if (this.shouldUseCompactSlotMode()) {
       return {
-        topReserve: SLOT_COMPACT_RESERVE_GAP,
-        bottomReserve: SLOT_COMPACT_RESERVE_GAP,
+        topReserve: SLOT_COMPACT_TOP_RESERVE,
+        bottomReserve: SLOT_COMPACT_BOTTOM_RESERVE,
         sidePadding: SLOT_COMPACT_SIDE_PADDING
       };
     }
@@ -122,17 +146,23 @@ export class SlotTab {
   }
 
   private async spin(mode: SpinMode): Promise<void> {
-    if (!this.grid) return;
+    if (!this.grid || !this.isActive || this.isSpinning) return;
 
-    this.setControlsDisabled(true);
+    this.isSpinning = true;
+    this.syncControlsDisabled();
     this.grid.clearWins();
 
     try {
       const result = await this.grid.spin(mode);
       this.applyWins(result);
     } finally {
-      this.setControlsDisabled(false);
+      this.isSpinning = false;
+      this.syncControlsDisabled();
     }
+  }
+
+  private syncControlsDisabled(): void {
+    this.setControlsDisabled(!this.isActive || this.isSpinning);
   }
 
   private setControlsDisabled(disabled: boolean): void {

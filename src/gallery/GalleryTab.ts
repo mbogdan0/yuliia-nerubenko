@@ -4,7 +4,12 @@ import { ensureSpineAssets } from "../symbols/assets";
 import { getDefaultSymbol, symbolDefinitions, symbolsById } from "../symbols/definitions";
 import { getCompactGalleryStageHeight, layoutPreviews } from "./layout";
 import { bindControls, renderSymbolButtons, updateControls, type GalleryDomElements } from "./controls";
-import { animationMixDurationSeconds, getPreviewAnimationDuration, playPreviewAnimation } from "./playback";
+import {
+  animationMixDurationSeconds,
+  getPreviewAnimationDuration,
+  hasPreviewAnimation,
+  playPreviewAnimation
+} from "./playback";
 import { createSymbolPreview } from "./preview";
 
 export type GalleryRouteState = {
@@ -145,7 +150,7 @@ export class GalleryTab {
   private transitionAnimation(): void {
     this.cachePlaybackDurations();
     this.activePreviews.forEach((preview) => {
-      this.applyAnimation(preview, animationMixDurationSeconds);
+      this.applyAnimation(preview, this.currentAnimation === "Idle" ? 0 : animationMixDurationSeconds);
     });
   }
 
@@ -154,6 +159,7 @@ export class GalleryTab {
       animation: this.currentAnimation,
       trackTime: 0,
       mixDuration,
+      loop: this.currentAnimation === "Idle",
       previousAnimation: this.lastAppliedAnimation
     });
 
@@ -165,6 +171,13 @@ export class GalleryTab {
   }
 
   private updatePreviewPlayback(preview: SymbolPreview, deltaSeconds: number): void {
+    if (this.currentAnimation === "Idle") {
+      if (hasPreviewAnimation(preview, "Idle")) {
+        preview.spine.update(deltaSeconds);
+      }
+      return;
+    }
+
     const duration = this.getAnimationDuration(preview, this.currentAnimation);
     const previousElapsed = this.loopElapsedSeconds.get(preview) ?? 0;
     const elapsed = previousElapsed + deltaSeconds;
