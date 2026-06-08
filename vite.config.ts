@@ -1,13 +1,12 @@
 import { defineConfig } from "vite";
-import { resolve } from "node:path";
 
 export default defineConfig({
   base: "/yuliia-nerubenko/",
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, "index.html"),
-        artist: resolve(__dirname, "artist.html")
+        main: "index.html",
+        artist: "artist.html"
       }
     }
   },
