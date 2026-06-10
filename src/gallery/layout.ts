@@ -24,7 +24,7 @@ const COMPACT_FOCUS_SIZE_FACTOR = 0.8;
 // (DPR-independent — autoDensity handles density, do NOT scale by devicePixelRatio).
 const GALLERY_SYMBOL_MAX_DISPLAY_SIZE = 250;
 // Below this, drop a column so symbols don't get cramped on narrow widths.
-const GALLERY_SYMBOL_MIN_DISPLAY_SIZE = 150;
+const GALLERY_SYMBOL_MIN_DISPLAY_SIZE = 125;
 // The only spacing knob: the minimum gap between (and around) symbols. Everything
 // else is automatic — leftover room is distributed space-evenly per axis, so the
 // horizontal and vertical gaps are computed independently and need not match.

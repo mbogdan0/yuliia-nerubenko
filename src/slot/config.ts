@@ -19,7 +19,7 @@ export const SLOT_STAGE_MIN_WIDTH = 280;
 
 // --- Motion model (position-based; all units are CELLS unless noted) ---
 // The reel tracks a continuous scroll `position`. Row r shows strip index position+r.
-export const SPIN_CELLS_PER_SEC = 16;   // free-spin speed (cells/s) ≈ 2000 px/s
+export const SPIN_CELLS_PER_SEC = 17;   // free-spin speed (cells/s) ≈ 2000 px/s
 export const SPIN_ACCEL_TIME = 0.2;   // s — quick ease-in to full speed at spin start
 export const STOP_MIN_CELLS = 2;       // min cells travelled during the stop deceleration
 export const STOP_DURATION_MIN = 0.15;  // s — clamp for the stop tween
@@ -46,7 +46,7 @@ export const STOP_EXTRA_CELLS_MAX = 0;  // 0..N extra whole cells added to each 
 export const STOP_OVERSHOOT_JITTER = 0; // ± fraction on landing overshoot (per stop)
 export const REEL_STOP_DELAY_JITTER = 0; // ± ms on the gap between sequential reel stops
 
-export const SPIN_MIN_DURATION = 650; // ms of free spin before reels begin stopping
+export const SPIN_MIN_DURATION = 700; // ms of free spin before reels begin stopping
 export const REEL_STOP_DELAY = 150;    // ms between sequential reel stops
 
 export const SLOT_MAX_RENDER_RESOLUTION = 2;
