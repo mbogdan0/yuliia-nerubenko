@@ -15,7 +15,7 @@ When the user asks to "make a release" or "do a release", follow these steps in 
 
 1. **Commit uncommitted files** — if the working tree is dirty, stage and commit all modified files with a concise descriptive message.
 2. **Squash local commits** — if there are commits ahead of `origin/main`, squash them into one: `git reset --soft origin/main && git commit -m "<summary>"`.
-3. **Bump version** — run `npm version patch --no-git-tag-version` to update both `package.json` and `package-lock.json`, then commit: `git add package.json package-lock.json && git commit -m "Bump version to X.Y.Z"`.
+3. **Bump version** — run `npm version patch --no-git-tag-version` to update both `package.json` and `package-lock.json`, then fold them into the squashed commit or amend it — the commit message should summarise what this release actually contains (features, fixes, changes), not just "Bump version".
 4. **Tag** — `git tag vX.Y.Z`
 5. **Push** — `git push origin main && git push origin vX.Y.Z`
 
