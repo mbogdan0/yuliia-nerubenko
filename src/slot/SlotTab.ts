@@ -1,6 +1,7 @@
 import { Container, Ticker, type Application } from "pixi.js";
 import { isGalleryCompactViewport } from "../gallery/responsive";
 import { reportError } from "../reportError";
+import { syncRendererToElement } from "../rendererSizing";
 import { ensureSpineAssets } from "../symbols/assets";
 import { symbolDefinitions } from "../symbols/definitions";
 import type { SymbolId } from "../types";
@@ -122,22 +123,7 @@ export class SlotTab {
   }
 
   private syncRendererToGameRoot(): void {
-    const bounds = this.layoutRefs.gameRoot.getBoundingClientRect();
-    const width = Math.round(bounds.width);
-    const height = Math.round(bounds.height);
-    const resolution = this.getTargetRenderResolution();
-
-    if (width <= 0 || height <= 0) {
-      return;
-    }
-
-    if (
-      this.app.screen.width !== width ||
-      this.app.screen.height !== height ||
-      this.app.renderer.resolution !== resolution
-    ) {
-      this.app.renderer.resize(width, height, resolution);
-    }
+    syncRendererToElement(this.app, this.layoutRefs.gameRoot, this.getTargetRenderResolution());
   }
 
   private getTargetRenderResolution(): number {

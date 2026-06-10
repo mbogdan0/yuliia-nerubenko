@@ -1,4 +1,6 @@
 import { Container, Ticker, type Application } from "pixi.js";
+import { syncRendererToElement } from "../rendererSizing";
+import { SLOT_MAX_RENDER_RESOLUTION } from "../slot/config";
 import type { AnimationName, GalleryMode, SymbolId, SymbolPreview, SymbolResolution } from "../types";
 import { ensureSpineAssets } from "../symbols/assets";
 import { getDefaultSymbol, symbolDefinitions, symbolsById } from "../symbols/definitions";
@@ -20,7 +22,7 @@ export type GalleryRouteState = {
 // Alpha fade speeds (units: fraction of gap closed per second, exponential decay).
 const WIN_FADE_SPEED = 7.5;
 const IDLE_FADE_SPEED = 5.5;
-const LOOP_RESTART_DELAY_SECONDS = 1.2;
+const LOOP_RESTART_DELAY_SECONDS = 0.9;
 
 // The Gallery renders the full-resolution atlas (the Slot demo uses low).
 const GALLERY_RESOLUTION: SymbolResolution = "high";
@@ -35,6 +37,7 @@ export class GalleryTab {
   private loopCycleDurationSeconds = LOOP_RESTART_DELAY_SECONDS;
   private lastAppliedAnimation: AnimationName = "Win";
   private rebuildGeneration = 0;
+  private resizeFrame: number | null = null;
 
   constructor(
     private readonly app: Application,
@@ -108,7 +111,14 @@ export class GalleryTab {
   }
 
   onResize(): void {
-    this.layout();
+    if (this.resizeFrame !== null) {
+      return;
+    }
+
+    this.resizeFrame = window.requestAnimationFrame(() => {
+      this.resizeFrame = null;
+      this.layout();
+    });
   }
 
   private async rebuildGallery(): Promise<void> {
@@ -248,25 +258,24 @@ export class GalleryTab {
       window.innerHeight
     );
     if (height === null) {
-      this.elements.gameRoot.style.removeProperty("--gallery-stage-height");
+      if (this.elements.gameRoot.style.getPropertyValue("--gallery-stage-height")) {
+        this.elements.gameRoot.style.removeProperty("--gallery-stage-height");
+      }
       return;
     }
 
-    this.elements.gameRoot.style.setProperty("--gallery-stage-height", `${height}px`);
+    const nextHeight = `${height}px`;
+    if (this.elements.gameRoot.style.getPropertyValue("--gallery-stage-height") !== nextHeight) {
+      this.elements.gameRoot.style.setProperty("--gallery-stage-height", nextHeight);
+    }
   }
 
   private syncRendererToGameRoot(): void {
-    const bounds = this.elements.gameRoot.getBoundingClientRect();
-    const width = Math.round(bounds.width);
-    const height = Math.round(bounds.height);
+    syncRendererToElement(this.app, this.elements.gameRoot, this.getTargetRenderResolution());
+  }
 
-    if (width <= 0 || height <= 0) {
-      return;
-    }
-
-    if (this.app.screen.width !== width || this.app.screen.height !== height) {
-      this.app.renderer.resize(width, height);
-    }
+  private getTargetRenderResolution(): number {
+    return Math.min(window.devicePixelRatio || 1, SLOT_MAX_RENDER_RESOLUTION);
   }
 
   private syncControls(): void {

@@ -28,7 +28,7 @@ const COMPACT_FOCUS_SIZE_FACTOR = 0.8;
 // index 1 = desktop (viewport ≥ 900 px and landscape).
 type ResponsivePair = [compact: number, desktop: number];
 
-const GALLERY_SYMBOL_MAX_DISPLAY_SIZE: ResponsivePair = [230, 250];
+const GALLERY_SYMBOL_MAX_DISPLAY_SIZE: ResponsivePair = [235, 250];
 // Below this, drop a column so symbols don't get cramped on narrow widths.
 const GALLERY_SYMBOL_MIN_DISPLAY_SIZE: ResponsivePair = [120, 160];
 // The only spacing knob: the minimum gap between (and around) symbols. Everything

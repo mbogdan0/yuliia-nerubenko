@@ -5,7 +5,6 @@ import { createAppLayers } from "./layers";
 import { completeLoading, showLoadingError } from "./loadingScreen";
 import { reportError } from "./reportError";
 import { buildRouteHash, parseRouteHash, type AppTab, type RouteState } from "./router";
-import { SLOT_MAX_RENDER_RESOLUTION } from "./slot/config";
 import { SlotTab } from "./slot/SlotTab";
 import { applyActiveTab, bindTabButtons } from "./tabs";
 import "./style.css";
@@ -17,6 +16,7 @@ const layers = createAppLayers();
 
 let activeTab: AppTab = "gallery";
 let isApplyingHash = false;
+let resizeFrame: number | null = null;
 
 const gallery = new GalleryTab(app, layers.previewLayer, dom.galleryElements, (state) => {
   if (!isApplyingHash && activeTab === "gallery") {
@@ -36,10 +36,7 @@ function switchTab(tabId: AppTab, updateHash = true): void {
   applyActiveTab(tabId, {
     dom,
     layers,
-    onGalleryResize: () => {
-      restoreDefaultRenderResolution();
-      gallery.onResize();
-    },
+    onGalleryResize: () => gallery.onResize(),
     onSlotResize: () => slotDemo.onResize()
   });
 
@@ -63,18 +60,19 @@ function tickActiveTab(ticker: Ticker): void {
 }
 
 function resizeActiveTab(): void {
-  if (activeTab === "gallery") {
-    restoreDefaultRenderResolution();
-    gallery.onResize();
-  }
+  if (activeTab === "gallery") gallery.onResize();
   else slotDemo.onResize();
 }
 
-function restoreDefaultRenderResolution(): void {
-  const resolution = Math.min(window.devicePixelRatio || 1, SLOT_MAX_RENDER_RESOLUTION);
-  if (app.renderer.resolution !== resolution) {
-    app.renderer.resize(app.screen.width, app.screen.height, resolution);
+function scheduleActiveTabResize(): void {
+  if (resizeFrame !== null) {
+    return;
   }
+
+  resizeFrame = window.requestAnimationFrame(() => {
+    resizeFrame = null;
+    resizeActiveTab();
+  });
 }
 
 async function applyRouteFromHash(): Promise<void> {
@@ -102,8 +100,7 @@ async function bootstrap(): Promise<void> {
     antialias: false,
     autoDensity: true,
     backgroundAlpha: 0,
-    resizeTo: dom.gameRoot,
-    resolution: Math.min(window.devicePixelRatio || 1, SLOT_MAX_RENDER_RESOLUTION)
+    resolution: 1
   });
 
   // Steady 60fps cadence: ProMotion (120Hz) doubles per-second render work which
@@ -128,18 +125,10 @@ async function bootstrap(): Promise<void> {
     tickActiveTab(ticker);
   });
 
-  // Relayout AFTER Pixi has updated app.screen. Pixi defers its resizeTo handling
-  // to the next animation frame, so reading app.screen on the raw window 'resize'
-  // event gave stale dimensions (wrong scale after rotation / iOS toolbar moves).
-  app.renderer.on("resize", () => {
-    resizeActiveTab();
-  });
-
   // iOS animates the address bar without always firing window 'resize'; the visual
-  // viewport does. Nudge Pixi to re-measure so the stage re-fits to the new height.
-  window.visualViewport?.addEventListener("resize", () => {
-    app.queueResize();
-  });
+  // viewport does. Debounce both resize sources into the active tab's manual sizing.
+  window.addEventListener("resize", scheduleActiveTabResize);
+  window.visualViewport?.addEventListener("resize", scheduleActiveTabResize);
 
   window.addEventListener("hashchange", () => {
     applyRouteFromHash().catch(reportError);

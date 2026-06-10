@@ -30,6 +30,7 @@ body {
   min-height: 100%;
   margin: 0;
   overflow-x: clip;
+  scrollbar-gutter: stable;
   background: #101211;
 }
 
@@ -284,13 +285,15 @@ button {
 
 .control-button.is-active::after {
   position: absolute;
-  top: 4px;
-  right: 6px;
-  color: rgb(23 20 18 / 58%);
-  content: "✓";
-  font-size: 11px;
-  font-weight: 900;
-  line-height: 1;
+  top: 5px;
+  right: 8px;
+  width: 4.4px;
+  height: 8.8px;
+  border-right: 2px solid rgb(23 20 18 / 58%);
+  border-bottom: 2px solid rgb(23 20 18 / 58%);
+  content: "";
+  transform: rotate(45deg);
+  transform-origin: 70% 70%;
 }
 
 .control-button:disabled {
@@ -386,13 +389,15 @@ button {
 
 .tab-button.is-active::after {
   position: absolute;
-  top: 4px;
-  right: 6px;
-  color: rgb(23 20 18 / 58%);
-  content: "✓";
-  font-size: 11px;
-  font-weight: 900;
-  line-height: 1;
+  top: 5px;
+  right: 8px;
+  width: 4.4px;
+  height: 8.8px;
+  border-right: 2px solid rgb(23 20 18 / 58%);
+  border-bottom: 2px solid rgb(23 20 18 / 58%);
+  content: "";
+  transform: rotate(45deg);
+  transform-origin: 70% 70%;
 }
 
 .slot-demo-ui,
