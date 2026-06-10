@@ -11,7 +11,9 @@ The symbol set is fully data-driven: a single `defineSymbol(id, label, emoji, fi
 To add or replace a symbol, lay out `data/symbols/<id>/{skeleton.skel, high/{atlas.atlas,atlas.png}, low/{atlas.atlas,atlas.png}}`. The animator delivers each resolution as a folder with arbitrarily-named atlas/png files, so rename every PNG to `atlas.png` and set each atlas's first line (its page reference) to `atlas.png`; then register the symbol in `definitions.ts`. `fitSlots` lists the Spine **slot** names of the symbol's solid body, used to compute its bounding box for auto-scaling — exclude purely decorative slots (glow, aura, sparkles, rays, impact, particles). These are slot names, **not** atlas region names (the two often differ), and any name that matches no slot is silently ignored, leaving a generic 300×300 fallback box — so confirm the names against the live skeleton instead of guessing.
 
 ## Release Workflow
-When the user asks to "make a release" or "do a release", follow these steps in order:
+**Only trigger this workflow when the user explicitly says "make a release", "do a release", "release it", or similarly direct phrasing. Do not run it as a side effect of other tasks.**
+
+When triggered, follow these steps in order:
 
 1. **Commit uncommitted files** — if the working tree is dirty, stage and commit all modified files with a concise descriptive message.
 2. **Squash local commits** — if there are commits ahead of `origin/main`, squash them into one: `git reset --soft origin/main && git commit -m "<summary>"`.
