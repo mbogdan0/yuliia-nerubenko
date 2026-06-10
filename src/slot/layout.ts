@@ -1,4 +1,4 @@
-import { CELL_H, CELL_W, REEL_COUNT, ROW_COUNT } from "./config";
+import { SLOT_GRID_H, SLOT_GRID_VISUAL_PADDING, SLOT_GRID_W } from "./config";
 
 export type SlotGridLayout = {
   x: number;
@@ -6,30 +6,16 @@ export type SlotGridLayout = {
   scale: number;
 };
 
-// Internal stage gutters (CSS px) so the reels fit inside the canvas without
-// visually colliding with surrounding DOM controls.
-export type SlotGridReserves = {
-  topReserve: number;
-  bottomReserve: number;
-  sidePadding: number;
-};
-
-export function calculateSlotGridLayout(
-  screenW: number,
-  screenH: number,
-  reserves: SlotGridReserves
-): SlotGridLayout {
-  const gridW = REEL_COUNT * CELL_W;
-  const gridH = ROW_COUNT * CELL_H;
-  const availableW = Math.max(1, screenW - reserves.sidePadding * 2);
-  const availableH = Math.max(1, screenH - reserves.topReserve - reserves.bottomReserve);
-  const scale = Math.min(1, availableW / gridW, availableH / gridH);
-  const scaledW = gridW * scale;
-  const scaledH = gridH * scale;
+export function calculateSlotGridLayout(screenW: number, screenH: number): SlotGridLayout {
+  const availableW = Math.max(1, screenW - SLOT_GRID_VISUAL_PADDING * 2);
+  const availableH = Math.max(1, screenH - SLOT_GRID_VISUAL_PADDING * 2);
+  const scale = Math.min(1, availableW / SLOT_GRID_W, availableH / SLOT_GRID_H);
+  const scaledW = SLOT_GRID_W * scale;
+  const scaledH = SLOT_GRID_H * scale;
 
   return {
     x: (screenW - scaledW) / 2,
-    y: reserves.topReserve + Math.max(0, (availableH - scaledH) / 2),
+    y: (screenH - scaledH) / 2,
     scale
   };
 }

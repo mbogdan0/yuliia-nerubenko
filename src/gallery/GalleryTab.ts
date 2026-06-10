@@ -2,7 +2,7 @@ import { Container, Ticker, type Application } from "pixi.js";
 import type { AnimationName, GalleryMode, SymbolId, SymbolPreview, SymbolResolution } from "../types";
 import { ensureSpineAssets } from "../symbols/assets";
 import { getDefaultSymbol, symbolDefinitions, symbolsById } from "../symbols/definitions";
-import { getCompactGalleryStageHeight, layoutPreviews } from "./layout";
+import { getGalleryStageHeight, layoutPreviews } from "./layout";
 import { bindControls, renderSymbolButtons, updateControls, type GalleryDomElements } from "./controls";
 import {
   animationMixDurationSeconds,
@@ -34,7 +34,6 @@ export class GalleryTab {
   private animationDurationSeconds = new Map<SymbolPreview, number>();
   private loopCycleDurationSeconds = LOOP_RESTART_DELAY_SECONDS;
   private lastAppliedAnimation: AnimationName = "Win";
-  private panelResizeObserver: ResizeObserver | null = null;
   private rebuildGeneration = 0;
 
   constructor(
@@ -70,18 +69,8 @@ export class GalleryTab {
       }
     });
 
-    this.observePanelResize();
-
     this.syncControls();
     await this.rebuildGallery();
-  }
-
-  // Relayout when the settings panel's box changes. Event-driven so the render
-  // loop avoids a per-frame reflow with getBoundingClientRect.
-  private observePanelResize(): void {
-    if (typeof ResizeObserver === "undefined") return;
-    this.panelResizeObserver = new ResizeObserver(() => this.layout());
-    this.panelResizeObserver.observe(this.elements.settingsPanel);
   }
 
   getRouteState(): GalleryRouteState {
@@ -114,8 +103,8 @@ export class GalleryTab {
       this.fadePreview(preview, deltaSeconds);
     }
 
-    // No layout() here: relayout is event-driven (onResize + observePanelResize +
-    // rebuild/route changes), so the render loop avoids a per-frame reflow.
+    // No layout() here: relayout is event-driven (onResize + rebuild/route
+    // changes), so the render loop avoids a per-frame reflow.
   }
 
   onResize(): void {
@@ -234,21 +223,27 @@ export class GalleryTab {
   }
 
   private layout(): void {
-    this.updateCompactStageHeight();
+    // 1) Size the canvas to the stage box to learn its current width. 2) Compute
+    // the stage height from that exact width. 3) Re-sync so the canvas adopts the
+    // new height. 4) Lay out. Deriving the height and the grid from the same
+    // app.screen.width keeps them consistent — the canvas is always exactly tall
+    // enough for every row, so nothing is clipped after a resize.
+    this.syncRendererToGameRoot();
+    this.updateStageHeight();
     this.syncRendererToGameRoot();
     layoutPreviews(
       this.activePreviews,
       this.app,
       this.elements.gameRoot,
-      this.elements.settingsPanel,
       this.currentMode
     );
   }
 
-  private updateCompactStageHeight(): void {
-    const height = getCompactGalleryStageHeight(
+  private updateStageHeight(): void {
+    const height = getGalleryStageHeight(
       this.activePreviews.length,
       this.currentMode,
+      this.app.screen.width,
       window.innerWidth,
       window.innerHeight
     );

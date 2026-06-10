@@ -12,6 +12,7 @@ export type AppDomRefs = {
   galleryPanel: HTMLElement;
   galleryElements: GalleryDomElements;
   loadingScreen: HTMLElement;
+  stageShell: HTMLElement;
   slotButtons: SlotButtonElements;
   slotControls: HTMLElement;
   slotDemoUi: HTMLElement;
@@ -30,11 +31,11 @@ export function getAppDomRefs(): AppDomRefs {
     galleryPanel,
     galleryElements: {
       gameRoot,
-      settingsPanel: galleryPanel,
       animationButtons: getButtons("[data-animation]"),
       symbolButtonsContainer: requiredElement<HTMLElement>("#symbol-buttons")
     },
     loadingScreen: requiredElement<HTMLElement>("#loading-screen"),
+    stageShell: requiredElement<HTMLElement>(".stage-shell"),
     slotButtons: {
       spinButton: requiredElement<HTMLButtonElement>("#spin-button"),
       spinWinButton: requiredElement<HTMLButtonElement>("#spin-win-button")

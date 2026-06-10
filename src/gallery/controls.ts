@@ -16,7 +16,6 @@ export type GalleryControlState = {
 
 export type GalleryDomElements = {
   gameRoot: HTMLElement;
-  settingsPanel: HTMLElement;
   animationButtons: HTMLButtonElement[];
   symbolButtonsContainer: HTMLElement;
 };

@@ -25,7 +25,8 @@ const gallery = new GalleryTab(app, layers.previewLayer, dom.galleryElements, (s
 });
 
 const slotDemo = new SlotTab(app, layers.slotLayer, dom.slotButtons, {
-  gameRoot: dom.gameRoot
+  gameRoot: dom.gameRoot,
+  stageShell: dom.stageShell
 });
 
 function switchTab(tabId: AppTab, updateHash = true): void {

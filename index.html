@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <link rel="icon" href="data:," />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <title>Yuliia Nerubenko Portfolio Demo</title>
   </head>
   <body>
@@ -17,44 +17,44 @@
         <button class="tab-button" type="button" data-tab="slot-demo">Slot Demo</button>
       </nav>
 
-      <div id="game-root" aria-label="Animated symbol gallery"></div>
+      <div class="stage-shell">
+        <div id="game-root" aria-label="Animated symbol gallery"></div>
 
-      <div class="slot-demo-ui" aria-label="Slot demo controls and artist credit">
-        <div id="slot-controls" class="slot-controls is-hidden">
-          <button id="spin-button" class="spin-button" type="button">Spin</button>
-          <button id="spin-win-button" class="spin-button spin-win-button" type="button">Spin & Win</button>
+        <div class="slot-demo-ui" aria-label="Slot demo controls and artist credit">
+          <div id="slot-controls" class="slot-controls is-hidden">
+            <button id="spin-button" class="spin-button" type="button">Spin</button>
+            <button id="spin-win-button" class="spin-button spin-win-button" type="button">Spin & Win</button>
+          </div>
+
+          <aside class="artist-badge" aria-label="Artist credit">
+            2D Animation by <a href="%BASE_URL%artist.html">Yuliia Nerubenko</a>
+          </aside>
         </div>
+      </div>
 
-        <aside class="artist-badge" aria-label="Artist credit">
+      <div class="gallery-sidebar">
+        <section id="gallery-panel" class="settings-panel" aria-label="Symbol gallery settings">
+          <div class="primary-control-group" aria-label="Symbol animation controls">
+            <div class="settings-section primary-section" aria-label="Symbol selector">
+              <h2>Symbol</h2>
+              <div id="symbol-buttons" class="symbol-group"></div>
+            </div>
+
+            <div class="settings-section primary-section" aria-label="Animation selector">
+              <h2>Animation</h2>
+              <div class="segmented-control">
+                <button class="control-button" type="button" data-animation="Idle">Idle</button>
+                <button class="control-button is-active" type="button" data-animation="Win">Win</button>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <aside class="gallery-credit" aria-label="Artist credit">
           2D Animation by <a href="%BASE_URL%artist.html">Yuliia Nerubenko</a>
         </aside>
       </div>
-
-      <section id="gallery-panel" class="settings-panel" aria-label="Symbol gallery settings">
-        <header class="panel-header">
-          2D Animation by <a href="%BASE_URL%artist.html">Yuliia Nerubenko</a>
-        </header>
-
-        <div class="primary-control-group" aria-label="Symbol animation controls">
-          <div class="settings-section primary-section" aria-label="Symbol selector">
-            <h2>Symbol</h2>
-            <div id="symbol-buttons" class="symbol-group"></div>
-          </div>
-
-          <div class="settings-section primary-section" aria-label="Animation selector">
-            <h2>Animation</h2>
-            <div class="segmented-control">
-              <button class="control-button" type="button" data-animation="Idle">Idle</button>
-              <button class="control-button is-active" type="button" data-animation="Win">Win</button>
-            </div>
-          </div>
-        </div>
-
-      </section>
-
-      <aside class="gallery-credit" aria-label="Artist credit">
-        2D Animation by <a href="%BASE_URL%artist.html">Yuliia Nerubenko</a>
-      </aside>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

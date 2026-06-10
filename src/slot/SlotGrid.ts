@@ -12,7 +12,7 @@ import {
 } from "./config";
 import { rand } from "../utils";
 import type { SymbolDefinition, SymbolId } from "../types";
-import { calculateSlotGridLayout, type SlotGridReserves } from "./layout";
+import { calculateSlotGridLayout } from "./layout";
 import { createSpinResult, type SpinMode } from "./results";
 
 // Visual sizing
@@ -177,8 +177,8 @@ export class SlotGrid {
     for (const reel of this.reels) reel.setReducedMotionWork(enabled);
   }
 
-  onResize(reserves: SlotGridReserves): void {
-    const layout = calculateSlotGridLayout(this.app.screen.width, this.app.screen.height, reserves);
+  onResize(): void {
+    const layout = calculateSlotGridLayout(this.app.screen.width, this.app.screen.height);
 
     this.gridRoot.scale.set(layout.scale);
     this.gridRoot.x = layout.x;

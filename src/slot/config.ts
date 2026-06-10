@@ -5,8 +5,17 @@ export const SLOT_RESOLUTION: SymbolResolution = "low";
 
 export const REEL_COUNT = 3;
 export const ROW_COUNT = 3;
-export const CELL_W = 200 * 0.93;          // cell width in px
-export const CELL_H = 220 * 0.93;          // cell height in px
+export const CELL_W = 190;          // cell width in px
+export const CELL_H = 200;          // cell height in px
+
+export const SLOT_GRID_W = REEL_COUNT * CELL_W;
+export const SLOT_GRID_H = ROW_COUNT * CELL_H;
+export const SLOT_GRID_VISUAL_PADDING = 8;
+export const SLOT_STAGE_MAX_WIDTH = SLOT_GRID_W + SLOT_GRID_VISUAL_PADDING * 2;
+export const SLOT_STAGE_MAX_HEIGHT = SLOT_GRID_H + SLOT_GRID_VISUAL_PADDING * 2;
+// Fit-to-viewport-height floor: the stage never shrinks narrower than this to
+// stay readable; below it the page scrolls instead (e.g. landscape phones).
+export const SLOT_STAGE_MIN_WIDTH = 280;
 
 // --- Motion model (position-based; all units are CELLS unless noted) ---
 // The reel tracks a continuous scroll `position`. Row r shows strip index position+r.
@@ -19,7 +28,7 @@ export const STOP_DURATION_MAX = 0.85;  // s
 // before settling, giving a tactile "thunk" on each stop.
 //   ~1.7 ≈ classic easeOutBack (~10% overshoot); 0 = no bounce (plain easeOut).
 // Keep modest (≈1.5–2.0): larger values overshoot more than one cell.
-export const STOP_OVERSHOOT = 1.7;
+export const STOP_OVERSHOOT = 1.73;
 
 // Direction symbols travel during a spin. Real reels fall (content moves down),
 // which the strip math does as `scroll` decreases. -1 = down (real), +1 = up.
@@ -39,11 +48,6 @@ export const REEL_STOP_DELAY_JITTER = 0; // ± ms on the gap between sequential 
 
 export const SPIN_MIN_DURATION = 650; // ms of free spin before reels begin stopping
 export const REEL_STOP_DELAY = 150;    // ms between sequential reel stops
-
-export const SLOT_DESKTOP_SIDE_PADDING = 24;
-export const SLOT_COMPACT_SIDE_PADDING = 18;
-export const SLOT_COMPACT_TOP_RESERVE = 16;
-export const SLOT_COMPACT_BOTTOM_RESERVE = 34;
 
 export const SLOT_MAX_RENDER_RESOLUTION = 2;
 export const SLOT_COMPACT_RENDER_RESOLUTION = 1.5;

@@ -1,20 +1,18 @@
 import { Container, Ticker, type Application } from "pixi.js";
+import { isGalleryCompactViewport } from "../gallery/responsive";
 import { reportError } from "../reportError";
-import { isCompactViewport } from "../responsive";
 import { ensureSpineAssets } from "../symbols/assets";
 import { symbolDefinitions } from "../symbols/definitions";
 import type { SymbolId } from "../types";
 import {
   REEL_COUNT,
-  SLOT_COMPACT_BOTTOM_RESERVE,
   SLOT_COMPACT_RENDER_RESOLUTION,
-  SLOT_COMPACT_SIDE_PADDING,
-  SLOT_COMPACT_TOP_RESERVE,
-  SLOT_DESKTOP_SIDE_PADDING,
   SLOT_MAX_RENDER_RESOLUTION,
-  SLOT_RESOLUTION
+  SLOT_RESOLUTION,
+  SLOT_STAGE_MAX_HEIGHT,
+  SLOT_STAGE_MAX_WIDTH,
+  SLOT_STAGE_MIN_WIDTH
 } from "./config";
-import type { SlotGridReserves } from "./layout";
 import { checkHorizontalWins } from "./paylines";
 import type { SpinMode } from "./results";
 import { SlotGrid } from "./SlotGrid";
@@ -26,12 +24,14 @@ type SlotControls = {
 
 type SlotLayoutRefs = {
   gameRoot: HTMLElement;
+  stageShell: HTMLElement;
 };
 
 export class SlotTab {
   private grid: SlotGrid | null = null;
   private resizeFrame: number | null = null;
   private activationFrame: number | null = null;
+  private resizeObserver: ResizeObserver | null = null;
   private isActive = false;
   private isSpinning = false;
 
@@ -45,7 +45,9 @@ export class SlotTab {
   async init(): Promise<void> {
     await ensureSpineAssets(symbolDefinitions, SLOT_RESOLUTION);
 
+    this.setStageSizingVars();
     this.grid = new SlotGrid(symbolDefinitions, this.layer, this.app);
+    this.observeStageResize();
     this.onResize();
     this.bindControls();
   }
@@ -85,8 +87,6 @@ export class SlotTab {
   }
 
   onResize(): void {
-    this.applyResize();
-
     if (this.resizeFrame !== null) {
       return;
     }
@@ -98,28 +98,34 @@ export class SlotTab {
   }
 
   private applyResize(): void {
+    // The renderer is shared with the Gallery; only the active tab may size it.
+    // The ResizeObserver watches #game-root in both modes, so gate here.
+    if (!this.isActive) return;
+
     this.syncRendererToGameRoot();
     this.grid?.setReducedMotionWork(this.shouldUseCompactSlotMode());
-    this.grid?.onResize(this.computeReserves());
+    this.grid?.onResize();
   }
 
-  private computeReserves(): SlotGridReserves {
-    if (this.shouldUseCompactSlotMode()) {
-      return {
-        topReserve: SLOT_COMPACT_TOP_RESERVE,
-        bottomReserve: SLOT_COMPACT_BOTTOM_RESERVE,
-        sidePadding: SLOT_COMPACT_SIDE_PADDING
-      };
-    }
+  private setStageSizingVars(): void {
+    const shellStyle = this.layoutRefs.stageShell.style;
+    shellStyle.setProperty("--slot-stage-w", `${Math.round(SLOT_STAGE_MAX_WIDTH)}`);
+    shellStyle.setProperty("--slot-stage-h", `${Math.round(SLOT_STAGE_MAX_HEIGHT)}`);
+    shellStyle.setProperty("--slot-stage-min-width", `${SLOT_STAGE_MIN_WIDTH}px`);
+  }
 
-    return { topReserve: 0, bottomReserve: 0, sidePadding: SLOT_DESKTOP_SIDE_PADDING };
+  private observeStageResize(): void {
+    this.resizeObserver = new ResizeObserver(() => {
+      this.onResize();
+    });
+    this.resizeObserver.observe(this.layoutRefs.gameRoot);
   }
 
   private syncRendererToGameRoot(): void {
     const bounds = this.layoutRefs.gameRoot.getBoundingClientRect();
     const width = Math.round(bounds.width);
     const height = Math.round(bounds.height);
-    const resolution = this.getTargetRenderResolution(width, height);
+    const resolution = this.getTargetRenderResolution();
 
     if (width <= 0 || height <= 0) {
       return;
@@ -134,8 +140,8 @@ export class SlotTab {
     }
   }
 
-  private getTargetRenderResolution(width: number, height: number): number {
-    const maxResolution = isCompactViewport(width, height)
+  private getTargetRenderResolution(): number {
+    const maxResolution = this.shouldUseCompactSlotMode()
       ? SLOT_COMPACT_RENDER_RESOLUTION
       : SLOT_MAX_RENDER_RESOLUTION;
 
@@ -143,7 +149,7 @@ export class SlotTab {
   }
 
   private shouldUseCompactSlotMode(): boolean {
-    return isCompactViewport(this.app.screen.width, this.app.screen.height);
+    return isGalleryCompactViewport(window.innerWidth, window.innerHeight);
   }
 
   private async spin(mode: SpinMode): Promise<void> {

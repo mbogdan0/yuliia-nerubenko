@@ -38,6 +38,11 @@ button {
 }
 
 #app {
+  --gallery-layout-gap: clamp(12px, 2vw, 24px);
+  --gallery-layout-pad: clamp(12px, 2vw, 28px);
+  --gallery-sidebar-width: clamp(260px, 26vw, 340px);
+  --gallery-desktop-stage-min-height: 520px;
+
   position: relative;
   height: 100vh;
   height: 100svh;
@@ -124,27 +129,7 @@ button {
 }
 
 #game-root {
-  position: absolute;
-  inset: 0;
   touch-action: pan-y;
-}
-
-#game-root::before {
-  position: absolute;
-  top: clamp(18px, 4vh, 42px);
-  right: clamp(332px, 26vw, 388px);
-  bottom: clamp(18px, 4vh, 42px);
-  left: clamp(18px, 4vw, 56px);
-  pointer-events: none;
-  content: "";
-  border: 1px solid rgb(245 218 154 / 18%);
-  border-radius: 8px;
-  background: rgb(0 0 0 / 12%);
-}
-
-/* Slot demo uses its own reel frame; hide the gallery's decorative panel here. */
-#app.is-slot-active #game-root::before {
-  display: none;
 }
 
 #game-root canvas {
@@ -153,6 +138,14 @@ button {
   width: 100%;
   height: 100%;
   touch-action: pan-y !important;
+}
+
+.gallery-sidebar {
+  display: contents;
+}
+
+.stage-shell {
+  display: contents;
 }
 
 .settings-panel {
@@ -173,16 +166,6 @@ button {
   background: rgb(18 19 18 / 82%);
   box-shadow: 0 18px 56px rgb(0 0 0 / 46%);
   backdrop-filter: blur(14px);
-}
-
-.panel-header {
-  display: block;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgb(var(--rgb-gold) / 14%);
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 750;
-  line-height: 1.22;
 }
 
 .settings-section h2 {
@@ -412,35 +395,34 @@ button {
   line-height: 1;
 }
 
-.slot-demo-ui {
-  display: contents;
-}
-
-.artist-badge {
-  position: absolute;
-  top: clamp(14px, 3vh, 26px);
-  right: clamp(14px, 2.4vw, 28px);
-  z-index: 2;
+.slot-demo-ui,
+.artist-badge,
+.gallery-credit {
   display: none;
-  width: min(314px, calc(100vw - 28px));
-  padding: 12px 14px;
-  border: 1px solid rgb(var(--rgb-gold) / 18%);
-  border-radius: 8px;
-  color: rgb(var(--rgb-cream) / 78%);
-  background: rgb(16 18 17 / 72%);
-  backdrop-filter: blur(14px);
-  font-size: 12px;
-  font-weight: 750;
-  line-height: 1.25;
 }
 
-#app.is-slot-active .artist-badge {
-  display: block;
+.artist-badge,
+.gallery-credit {
+  width: 100%;
+  padding: clamp(13px, 2.8vw, 15px);
+  border: 1px solid rgb(255 224 136 / 34%);
+  border-radius: 8px;
+  color: rgb(255 247 221 / 88%);
+  background:
+    linear-gradient(180deg, rgb(var(--rgb-white) / 6%), transparent),
+    rgb(18 19 18 / 88%);
+  box-shadow:
+    0 0 0 1px rgb(255 226 144 / 10%),
+    0 0 34px rgb(245 189 69 / 16%),
+    0 16px 42px rgb(0 0 0 / 36%);
+  backdrop-filter: blur(14px);
+  font-size: clamp(14px, 3vw, 15px);
+  font-weight: 800;
+  line-height: 1.22;
 }
 
 .artist-badge a,
-.gallery-credit a,
-.panel-header a {
+.gallery-credit a {
   color: var(--color-text);
   text-decoration: underline;
   text-decoration-color: rgb(var(--rgb-gold) / 45%);
@@ -449,8 +431,7 @@ button {
 }
 
 .artist-badge a::after,
-.gallery-credit a::after,
-.panel-header a::after {
+.gallery-credit a::after {
   content: " ↗";
   font-size: 0.75em;
   opacity: 0.6;
@@ -458,30 +439,26 @@ button {
 }
 
 .artist-badge a:hover,
-.gallery-credit a:hover,
-.panel-header a:hover {
+.gallery-credit a:hover {
   color: var(--color-accent-light);
   text-decoration-color: currentColor;
 }
 
-.gallery-credit {
-  display: none;
-}
-
 .slot-controls {
-  position: absolute;
-  bottom: clamp(48px, 7vh, 80px);
-  left: 50%;
-  z-index: 2;
-  display: flex;
-  gap: 10px;
-  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .spin-button {
-  min-width: 160px;
-  min-height: 54px;
-  padding: 0 32px;
+  min-width: 0;
+  min-height: clamp(40px, 8vw, 48px);
+  padding: 0 clamp(10px, 2.4vw, 16px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border: 2px solid rgb(255 237 168 / 70%);
   border-radius: 12px;
   color: var(--color-text-on-accent);
@@ -489,9 +466,9 @@ button {
   box-shadow: 0 4px 24px rgb(245 189 69 / 40%);
   cursor: pointer;
   font: inherit;
-  font-size: 20px;
+  font-size: clamp(15px, 3.2vw, 18px);
   font-weight: 900;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .spin-win-button {
@@ -531,19 +508,7 @@ button {
   font-weight: 800;
 }
 
-/* Keep compact thresholds in sync with src/responsive.ts (COMPACT_MAX_WIDTH/HEIGHT). */
-@media (width <= 1100px), (height <= 820px) {
-  #app {
-    display: block;
-    height: auto;
-    min-height: 100svh;
-    padding: clamp(10px, 2vw, 12px);
-    background-size:
-      36px 36px,
-      36px 36px,
-      auto;
-  }
-
+@media (width <= 1100px), (height <= 600px) {
   .loading-screen {
     gap: 10px;
     padding: 20px;
@@ -567,179 +532,371 @@ button {
     width: 46px;
     height: 46px;
   }
+}
 
-  .tab-nav {
-    position: sticky;
-    top: 0;
-    right: auto;
-    left: auto;
-    z-index: 10;
-    width: 100%;
-    padding: calc(5px + env(safe-area-inset-top)) 5px 5px;
-    justify-content: stretch;
-    background: rgb(15 17 16 / 88%);
-    box-shadow: 0 10px 22px rgb(0 0 0 / 18%);
+#app.is-slot-active {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: 100svh;
+  padding: clamp(10px, 2vw, 12px);
+  background-size:
+    36px 36px,
+    36px 36px,
+    auto;
+}
+
+#app.is-slot-active .tab-nav {
+  position: sticky;
+  top: 0;
+  right: auto;
+  left: auto;
+  z-index: 10;
+  width: 100%;
+  padding: calc(5px + env(safe-area-inset-top)) 5px 5px;
+  justify-content: stretch;
+  background: rgb(15 17 16 / 88%);
+  box-shadow: 0 10px 22px rgb(0 0 0 / 18%);
+}
+
+#app.is-slot-active .tab-button {
+  flex: 1;
+  min-width: 0;
+  min-height: clamp(36px, 8vw, 44px);
+  padding: 0 clamp(8px, 2.4vw, 18px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(13px, 2.6vw, 15px);
+}
+
+#app.is-slot-active .stage-shell {
+  /* Vertical chrome budget around #game-root (app padding, nav, gaps, spin
+     buttons, badge). An estimate: if real chrome runs taller — e.g. the badge
+     wraps — the page just scrolls a little instead of breaking. */
+  --slot-stage-vertical-reserve: 230px;
+
+  display: grid;
+  gap: clamp(16px, 2.8vw, 24px);
+  justify-items: center;
+
+  /* Fill the page width, but cap at the stage's native size and at what fits
+     the viewport height (keeping the reel aspect), never below the floor. */
+  width: min(
+    100%,
+    calc(var(--slot-stage-w, 586) * 1px),
+    max(
+      var(--slot-stage-min-width, 280px),
+      calc((100svh - var(--slot-stage-vertical-reserve)) * var(--slot-stage-w, 586) / var(--slot-stage-h, 616))
+    )
+  );
+  margin: auto;
+}
+
+#app.is-slot-active #game-root {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--slot-stage-w, 586) / var(--slot-stage-h, 616);
+  overflow: hidden;
+}
+
+#app.is-slot-active #game-root canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#app.is-slot-active .slot-demo-ui {
+  display: grid;
+  gap: clamp(8px, 1.8vw, 10px);
+  width: 100%;
+}
+
+#app.is-slot-active .artist-badge {
+  display: block;
+}
+
+#app:not(.is-slot-active) {
+  display: block;
+  height: auto;
+  min-height: 100svh;
+  padding: clamp(10px, 2vw, 12px);
+  background-size:
+    36px 36px,
+    36px 36px,
+    auto;
+}
+
+#app:not(.is-slot-active) .tab-nav {
+  position: sticky;
+  top: 0;
+  right: auto;
+  left: auto;
+  z-index: 10;
+  width: 100%;
+  padding: calc(5px + env(safe-area-inset-top)) 5px 5px;
+  justify-content: stretch;
+  background: rgb(15 17 16 / 88%);
+  box-shadow: 0 10px 22px rgb(0 0 0 / 18%);
+}
+
+#app:not(.is-slot-active) .tab-button {
+  flex: 1;
+  min-width: 0;
+  min-height: clamp(36px, 8vw, 44px);
+  padding: 0 clamp(8px, 2.4vw, 18px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(13px, 2.6vw, 15px);
+}
+
+#app:not(.is-slot-active) #game-root {
+  position: relative;
+  width: 100%;
+  height: var(--gallery-stage-height, clamp(300px, min(58svh, 76vw), 520px));
+  margin: clamp(10px, 2vw, 14px) 0 10px;
+  overflow: hidden;
+}
+
+#app:not(.is-slot-active) #game-root canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Decorative frame around the compact gallery stage (desktop hides it below;
+   the slot tab has no ::before at all — its reel frame is drawn on canvas). */
+#app:not(.is-slot-active) #game-root::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  border: 1px solid rgb(245 218 154 / 18%);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 12%);
+}
+
+#app:not(.is-slot-active) .gallery-sidebar {
+  display: block;
+}
+
+#app:not(.is-slot-active) .settings-panel {
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  gap: clamp(8px, 1.8vw, 10px);
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  padding: clamp(10px, 2vw, 12px);
+  overflow: visible;
+  transform: none;
+}
+
+#app:not(.is-slot-active) .primary-control-group {
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#app:not(.is-slot-active) .primary-control-group .settings-section + .settings-section {
+  padding-top: 8px;
+  padding-left: 0;
+  border-top: 1px solid rgb(var(--rgb-gold) / 12%);
+  border-left: 0;
+}
+
+#app:not(.is-slot-active) .settings-section h2 {
+  font-size: clamp(10px, 1.8vw, 11px);
+}
+
+#app:not(.is-slot-active) .segmented-control {
+  gap: 5px;
+}
+
+#app:not(.is-slot-active) .symbol-group {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#app:not(.is-slot-active) .control-button {
+  height: clamp(30px, 7vw, 36px);
+  min-height: 0;
+  padding: 0 clamp(7px, 1.8vw, 10px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: clamp(11px, 2.2vw, 13px);
+}
+
+#app:not(.is-slot-active) .primary-section .control-button,
+#app:not(.is-slot-active) .symbol-button {
+  height: clamp(32px, 7.2vw, 38px);
+  min-height: 0;
+  font-size: clamp(11px, 2.2vw, 13px);
+}
+
+#app:not(.is-slot-active) .primary-section .control-button[data-animation] {
+  height: clamp(30px, 7vw, 36px);
+}
+
+#app:not(.is-slot-active) .gallery-credit {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  display: block;
+  width: 100%;
+  margin: 10px 0 0;
+}
+
+@media (width >= 900px) and (orientation: landscape) {
+  #app:not(.is-slot-active) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--gallery-sidebar-width);
+    grid-template-rows: auto minmax(var(--gallery-desktop-stage-min-height), 1fr);
+    gap: var(--gallery-layout-gap);
+    align-items: start;
+    min-height: 100svh;
+    padding: var(--gallery-layout-pad);
+    background-size:
+      42px 42px,
+      42px 42px,
+      auto;
   }
 
-  .tab-button {
-    flex: 1;
-    min-width: 0;
-    min-height: clamp(36px, 8vw, 44px);
-    padding: 0 clamp(8px, 2.4vw, 18px);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: clamp(13px, 2.6vw, 15px);
-  }
-
-  #game-root {
+  #app:not(.is-slot-active) .tab-nav {
     position: relative;
-    inset: auto;
-    width: 100%;
-    height: var(--gallery-stage-height, clamp(300px, min(58svh, 76vw), 520px));
-    margin: clamp(10px, 2vw, 14px) 0 10px;
-    overflow: hidden;
-  }
-
-  #app.is-slot-active #game-root {
-    height: clamp(330px, min(54svh, calc((100vw - 20px) * 1.06)), 500px);
-  }
-
-  #game-root canvas {
-    position: absolute;
-    inset: 0;
-    width: 100% !important;
-    height: 100% !important;
-  }
-
-  .slot-demo-ui {
-    position: relative;
-    right: auto;
-    bottom: auto;
+    top: auto;
     left: auto;
-    z-index: 3;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    width: max-content;
+    padding: 5px;
+    justify-content: start;
+    background: rgb(15 17 16 / 72%);
+    box-shadow: none;
+  }
+
+  #app:not(.is-slot-active) .tab-button {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 24px;
+    font-size: 15px;
+  }
+
+  #app:not(.is-slot-active) #game-root {
+    grid-column: 1;
+    grid-row: 2;
+    /* Fill the 1fr stage row, but never shorter than the grid needs: min-height is
+       the JS-computed content height, so small symbol sets fill the viewport (no
+       scroll) while large sets grow past it and scroll the page. height:auto lets
+       align-self:stretch win over the base #game-root height; no magic nav math. */
+    height: auto;
+    align-self: stretch;
+    min-height: var(--gallery-stage-height, var(--gallery-desktop-stage-min-height));
+    margin: 0;
+    border: 1px solid rgb(245 218 154 / 18%);
+    border-radius: 8px;
+    background: rgb(0 0 0 / 12%);
+  }
+
+  #app:not(.is-slot-active) #game-root::before {
     display: none;
-    gap: clamp(8px, 1.8vw, 10px);
-    width: 100%;
+  }
+
+  #app:not(.is-slot-active) .gallery-sidebar {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    gap: var(--gallery-layout-gap);
+    align-self: start;
+    min-width: 0;
+  }
+
+  #app:not(.is-slot-active) .gallery-credit {
+    order: -1;
     margin: 0;
   }
 
-  #app.is-slot-active .slot-demo-ui {
+  #app:not(.is-slot-active) .settings-panel {
+    width: 100%;
+    padding: 14px;
+    max-height: none;
+    overflow: visible;
+    background: rgb(18 19 18 / 86%);
+    box-shadow: 0 18px 56px rgb(0 0 0 / 38%);
+  }
+
+  #app:not(.is-slot-active) .primary-control-group {
+    gap: 10px;
+  }
+
+  #app:not(.is-slot-active) .settings-section h2 {
+    font-size: 11px;
+  }
+
+  #app:not(.is-slot-active) .control-button,
+  #app:not(.is-slot-active) .primary-section .control-button,
+  #app:not(.is-slot-active) .symbol-button {
+    height: 40px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+}
+
+@media (width >= 900px) and (orientation: landscape) {
+  #app.is-slot-active {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    gap: clamp(10px, 1.6vw, 16px);
+    justify-items: center;
+    align-items: start;
+    min-height: 100svh;
+    padding: var(--gallery-layout-pad);
+    background-size:
+      42px 42px,
+      42px 42px,
+      auto;
   }
 
-  #app.is-slot-active .artist-badge {
-    position: static;
-    width: auto;
-    padding: clamp(10px, 2vw, 12px);
-  }
-
-  .settings-panel {
+  #app.is-slot-active .tab-nav {
     position: relative;
     top: auto;
-    right: auto;
-    bottom: auto;
     left: auto;
-    grid-template-rows: auto auto auto;
-    gap: clamp(8px, 1.8vw, 10px);
-    width: 100%;
-    max-width: none;
-    max-height: none;
-    padding: clamp(10px, 2vw, 12px);
-    overflow: visible;
+    justify-self: start;
+    width: max-content;
+    padding: 5px;
+    justify-content: start;
+    background: rgb(15 17 16 / 72%);
+    box-shadow: none;
   }
 
-  .panel-header {
-    display: none;
+  #app.is-slot-active .tab-button {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 24px;
+    font-size: 15px;
   }
 
-  .settings-section + .settings-section {
-    padding-top: 8px;
+  #app.is-slot-active .stage-shell {
+    /* Taller chrome on desktop: bigger paddings, nav row and spin buttons. */
+    --slot-stage-vertical-reserve: 260px;
+
+    align-self: center;
+    margin: 0;
   }
 
-  .primary-control-group {
-    gap: 8px;
-    padding: 9px;
-  }
-
-  .primary-control-group .settings-section + .settings-section {
-    padding-top: 8px;
-  }
-
-  .settings-section h2 {
-    font-size: clamp(10px, 1.8vw, 11px);
-  }
-
-  .segmented-control {
-    gap: 5px;
-  }
-
-  .symbol-group {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .control-button {
-    height: clamp(30px, 7vw, 36px);
-    min-height: 0;
-    padding: 0 clamp(7px, 1.8vw, 10px);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: clamp(11px, 2.2vw, 13px);
-  }
-
-  .primary-section .control-button,
-  .symbol-button {
-    height: clamp(32px, 7.2vw, 38px);
-    min-height: 0;
-    font-size: clamp(11px, 2.2vw, 13px);
-  }
-
-  .primary-section .control-button[data-animation] {
-    height: clamp(30px, 7vw, 36px);
-    min-height: 0;
-  }
-
-  .slot-controls {
-    position: static;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    transform: none;
-  }
-
-  .spin-button {
-    min-width: 0;
-    min-height: clamp(40px, 8vw, 48px);
-    padding: 0 clamp(10px, 2.4vw, 16px);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: clamp(15px, 3.2vw, 18px);
+  #app.is-slot-active .spin-button {
+    min-height: 54px;
+    padding: 0 32px;
+    font-size: 20px;
     letter-spacing: 0;
-  }
-
-  #game-root::before {
-    inset: 0;
-  }
-
-  .gallery-credit {
-    display: block;
-    grid-column: 1;
-    grid-row: auto;
-    width: 100%;
-    margin: 10px 0 0;
-    padding: clamp(10px, 2vw, 12px);
-    border: 1px solid rgb(var(--rgb-gold) / 18%);
-    border-radius: 8px;
-    color: rgb(var(--rgb-cream) / 78%);
-    background: rgb(16 18 17 / 72%);
-    backdrop-filter: blur(14px);
-    font-size: clamp(11px, 2vw, 12px);
-    font-weight: 750;
-    line-height: 1.18;
-  }
-
-  #app.is-slot-active .gallery-credit {
-    display: none;
   }
 }
