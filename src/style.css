@@ -454,7 +454,7 @@ button {
 
 .spin-button {
   min-width: 0;
-  min-height: clamp(40px, 8vw, 48px);
+  min-height: clamp(28.9px, 5.525vw, 34px);
   padding: 0 clamp(10px, 2.4vw, 16px);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -894,7 +894,7 @@ button {
   }
 
   #app.is-slot-active .spin-button {
-    min-height: 54px;
+    min-height: 44px;
     padding: 0 32px;
     font-size: 20px;
     letter-spacing: 0;
