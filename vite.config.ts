@@ -1,4 +1,7 @@
+import { readFileSync } from "fs";
 import { defineConfig } from "vite";
+
+const { version } = JSON.parse(readFileSync("./package.json", "utf-8")) as { version: string };
 
 export default defineConfig({
   base: "/yuliia-nerubenko/",
@@ -9,6 +12,9 @@ export default defineConfig({
         artist: "artist.html"
       }
     }
+  },
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
   },
   publicDir: "data",
   server: {

@@ -19,7 +19,7 @@ export const SLOT_STAGE_MIN_WIDTH = 280;
 
 // --- Motion model (position-based; all units are CELLS unless noted) ---
 // The reel tracks a continuous scroll `position`. Row r shows strip index position+r.
-export const SPIN_CELLS_PER_SEC = 17;   // free-spin speed (cells/s) ≈ 2000 px/s
+export const SPIN_CELLS_PER_SEC = 16;   // free-spin speed (cells/s) ≈ 2000 px/s
 export const SPIN_ACCEL_TIME = 0.2;   // s — quick ease-in to full speed at spin start
 export const STOP_MIN_CELLS = 2;       // min cells travelled during the stop deceleration
 export const STOP_DURATION_MIN = 0.15;  // s — clamp for the stop tween

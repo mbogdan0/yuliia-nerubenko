@@ -121,10 +121,10 @@ export class GalleryTab {
 
     const symbols = this.getSymbolsForCurrentMode();
 
-    await ensureSpineAssets(symbols, GALLERY_RESOLUTION);
+    const loaded = await ensureSpineAssets(symbols, GALLERY_RESOLUTION);
     if (generation !== this.rebuildGeneration) return;
 
-    this.activePreviews = symbols.map((symbol) => createSymbolPreview(symbol, GALLERY_RESOLUTION));
+    this.activePreviews = loaded.map((symbol) => createSymbolPreview(symbol, GALLERY_RESOLUTION));
     this.cachePlaybackDurations();
     this.activePreviews.forEach((preview) => {
       this.applyAnimation(preview, 0);

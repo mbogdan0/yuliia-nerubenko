@@ -43,10 +43,10 @@ export class SlotTab {
   ) {}
 
   async init(): Promise<void> {
-    await ensureSpineAssets(symbolDefinitions, SLOT_RESOLUTION);
+    const loaded = await ensureSpineAssets(symbolDefinitions, SLOT_RESOLUTION);
 
     this.setStageSizingVars();
-    this.grid = new SlotGrid(symbolDefinitions, this.layer, this.app);
+    this.grid = new SlotGrid(loaded, this.layer, this.app);
     this.observeStageResize();
     this.onResize();
     this.bindControls();
