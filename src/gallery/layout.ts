@@ -17,7 +17,7 @@ const FOCUS_FILL_W = 0.82;
 const PREVIEW_FILL_H = 0.78;
 const COMPACT_FOCUS_SIZE_FACTOR = 0.8;
 
-// --- Symbol sizing & spacing (grid "all" mode) ---
+// --- Symbol sizing & spacing ---
 // Symbols are sized by WIDTH (so they stay a consistent, generous size regardless
 // of how many there are) and capped at MAX. The canvas then grows tall enough to
 // hold every row, so large symbol sets simply scroll the page. Logical CSS px
@@ -28,20 +28,23 @@ const COMPACT_FOCUS_SIZE_FACTOR = 0.8;
 // index 1 = desktop (viewport ≥ 900 px and landscape).
 type ResponsivePair = [compact: number, desktop: number];
 
-const GALLERY_SYMBOL_MAX_DISPLAY_SIZE: ResponsivePair = [235, 250];
+const GALLERY_SYMBOL_MAX_DISPLAY_SIZE: Record<GalleryMode, ResponsivePair> = {
+  all: [175, 170], // mobile, desktop
+  focus: [240, 250],
+};
 // Below this, drop a column so symbols don't get cramped on narrow widths.
 const GALLERY_SYMBOL_MIN_DISPLAY_SIZE: ResponsivePair = [120, 160];
 // The only spacing knob: the minimum gap between (and around) symbols. Everything
 // else is automatic — leftover room is distributed space-evenly per axis, so the
 // horizontal and vertical gaps are computed independently and need not match.
-const GALLERY_SYMBOL_MIN_GAP: ResponsivePair = [35, 95];
+const GALLERY_SYMBOL_MIN_GAP: ResponsivePair = [35, 55];
 
 type GallerySizing = { maxDisplaySize: number; minDisplaySize: number; minGap: number };
 
-function resolveGallerySizing(isCompact: boolean): GallerySizing {
+function resolveGallerySizing(currentMode: GalleryMode, isCompact: boolean): GallerySizing {
   const i = isCompact ? 0 : 1;
   return {
-    maxDisplaySize: GALLERY_SYMBOL_MAX_DISPLAY_SIZE[i],
+    maxDisplaySize: GALLERY_SYMBOL_MAX_DISPLAY_SIZE[currentMode][i],
     minDisplaySize: GALLERY_SYMBOL_MIN_DISPLAY_SIZE[i],
     minGap: GALLERY_SYMBOL_MIN_GAP[i],
   };
@@ -75,7 +78,7 @@ export function getGalleryStageHeight(
   // Natural grid height at the minimum gap. Compact uses it as the canvas height
   // (the page scrolls); desktop uses it as a min-height floor, so the stage fills
   // the viewport for small sets and grows past it — scrolling — for large ones.
-  const sizing = resolveGallerySizing(isCompact);
+  const sizing = resolveGallerySizing(currentMode, isCompact);
   const availableWidth = Math.max(MIN_STAGE_WIDTH, areaWidth);
   const preferredColumns = isCompact ? COMPACT_GRID_COLUMNS : DESKTOP_GRID_COLUMNS;
   const grid = computeGrid(itemCount, availableWidth, 0, preferredColumns, sizing);
@@ -97,7 +100,7 @@ export function layoutPreviews(
   // sidebar grid the canvas (app.screen) is far narrower than the window, so it
   // must not be what decides compact-vs-desktop.
   const isCompact = isGalleryCompactViewport(window.innerWidth, window.innerHeight);
-  const sizing = resolveGallerySizing(isCompact);
+  const sizing = resolveGallerySizing(currentMode, isCompact);
 
   if (currentMode === "focus") {
     const centerX = area.x + area.width / 2;
