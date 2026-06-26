@@ -5,9 +5,9 @@ import { animationMixDurationSeconds } from "../gallery/playback";
 const POPUP_ASSET_BASE = `${import.meta.env.BASE_URL}popups/joker`;
 const POPUP_SKELETON_ALIAS = "jokerPopupSkeleton";
 const POPUP_ATLAS_ALIAS = "jokerPopupAtlas";
-const POPUP_AUTO_CLOSE_SECONDS = 12;
+const POPUP_AUTO_CLOSE_SECONDS = 10;
 const POPUP_IDLE_DELAY_SECONDS = 0.25;
-const POPUP_MAX_SCREEN_FILL = 0.92;
+const POPUP_MAX_SCREEN_FILL = 0.96;
 
 type PopupState = "hidden" | "intro" | "idle" | "outro";
 type PopupBounds = { x: number; y: number; width: number; height: number };
@@ -38,8 +38,6 @@ export class JokerPopup {
   private readonly overlay = new Container();
   private readonly backdrop = new Graphics();
   private readonly domOverlay: HTMLDivElement;
-  private readonly windowHitbox: HTMLDivElement;
-  private readonly closeButton: HTMLButtonElement;
   private spine: Spine | null = null;
   private popupBounds: PopupBounds | null = null;
   // Bounds depend only on the (static) skeleton data, so sample them once and
@@ -64,26 +62,13 @@ export class JokerPopup {
     this.domOverlay = document.createElement("div");
     this.domOverlay.className = "joker-popup-hit-area is-hidden";
     this.domOverlay.setAttribute("aria-hidden", "true");
-
-    this.windowHitbox = document.createElement("div");
-    this.windowHitbox.className = "joker-popup-window-hitbox";
-
-    this.closeButton = document.createElement("button");
-    this.closeButton.className = "joker-popup-close";
-    this.closeButton.type = "button";
-    this.closeButton.textContent = "Close";
-
-    this.windowHitbox.appendChild(this.closeButton);
-    this.domOverlay.appendChild(this.windowHitbox);
     domParent.appendChild(this.domOverlay);
 
-    this.domOverlay.addEventListener("click", (event) => {
-      if (event.target === this.domOverlay) this.close();
+    // A click/tap anywhere dismisses the popup. Gate on `idle` so a stray tap right
+    // as the popup appears can't cut off the intro before the user has seen it.
+    this.domOverlay.addEventListener("click", () => {
+      if (this.state === "idle") this.close();
     });
-    this.windowHitbox.addEventListener("click", (event) => {
-      event.stopPropagation();
-    });
-    this.closeButton.addEventListener("click", () => this.close());
     window.addEventListener("keydown", this.handleKeyDown);
   }
 
