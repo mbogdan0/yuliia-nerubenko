@@ -4,9 +4,11 @@ import { reportError } from "../reportError";
 import { syncRendererToElement } from "../rendererSizing";
 import { ensureSpineAssets } from "../symbols/assets";
 import { symbolDefinitions } from "../symbols/definitions";
+import { JOKER_SYMBOL_ID, JOKER_WIN_BIG } from "../symbols/jokerState";
 import type { SymbolId } from "../types";
 import {
   REEL_COUNT,
+  ROW_COUNT,
   SLOT_COMPACT_RENDER_RESOLUTION,
   SLOT_MAX_RENDER_RESOLUTION,
   SLOT_RESOLUTION,
@@ -14,9 +16,15 @@ import {
   SLOT_STAGE_MAX_WIDTH,
   SLOT_STAGE_MIN_WIDTH
 } from "./config";
-import { checkHorizontalWins } from "./paylines";
+import { JokerPopup, preloadJokerPopupAssets } from "./JokerPopup";
+import { checkHorizontalSymbolRows, checkHorizontalWins } from "./paylines";
 import type { SpinMode } from "./results";
 import { SlotGrid } from "./SlotGrid";
+
+// Let the big-win clip finish, then wait this long before covering the reels.
+const JOKER_POPUP_POST_WIN_BUFFER_MS = 200;
+// Used only if the win clip's duration can't be read off the live skeleton.
+const JOKER_POPUP_FALLBACK_DELAY_MS = 2200;
 
 type SlotControls = {
   spinButton: HTMLButtonElement;
@@ -35,12 +43,14 @@ export class SlotTab {
   private resizeObserver: ResizeObserver | null = null;
   private isActive = false;
   private isSpinning = false;
+  private spinGeneration = 0;
 
   constructor(
     private readonly app: Application,
     private readonly layer: Container,
     private readonly controls: SlotControls,
-    private readonly layoutRefs: SlotLayoutRefs
+    private readonly layoutRefs: SlotLayoutRefs,
+    private readonly jokerPopup: JokerPopup
   ) {}
 
   async init(): Promise<void> {
@@ -64,7 +74,9 @@ export class SlotTab {
   }
 
   tick(ticker: Ticker): void {
-    this.grid?.update(ticker.deltaMS / 1000);
+    const deltaSeconds = ticker.deltaMS / 1000;
+    this.grid?.update(deltaSeconds);
+    this.jokerPopup.update(deltaSeconds);
   }
 
   setActive(active: boolean): void {
@@ -76,10 +88,13 @@ export class SlotTab {
     }
 
     if (!active) {
+      this.spinGeneration++;
+      this.jokerPopup.hideImmediately();
       this.setControlsDisabled(true);
       return;
     }
 
+    preloadJokerPopupAssets().catch(reportError);
     this.setControlsDisabled(true);
     this.activationFrame = window.requestAnimationFrame(() => {
       this.activationFrame = null;
@@ -106,6 +121,7 @@ export class SlotTab {
     this.syncRendererToGameRoot();
     this.grid?.setReducedMotionWork(this.shouldUseCompactSlotMode());
     this.grid?.onResize();
+    this.jokerPopup.layout();
   }
 
   private setStageSizingVars(): void {
@@ -141,13 +157,14 @@ export class SlotTab {
   private async spin(mode: SpinMode): Promise<void> {
     if (!this.grid || !this.isActive || this.isSpinning) return;
 
+    const generation = ++this.spinGeneration;
     this.isSpinning = true;
     this.syncControlsDisabled();
     this.grid.clearWins();
 
     try {
       const result = await this.grid.spin(mode);
-      this.applyWins(result);
+      await this.applyWins(result, generation);
     } finally {
       this.isSpinning = false;
       this.syncControlsDisabled();
@@ -163,14 +180,60 @@ export class SlotTab {
     this.controls.spinWinButton.disabled = disabled;
   }
 
-  private applyWins(result: SymbolId[][]): void {
+  private async applyWins(result: SymbolId[][], generation: number): Promise<void> {
     if (!this.grid) return;
     const winRows = checkHorizontalWins(result);
-    this.grid.showWins(winRows);
+    const jokerRows = checkHorizontalSymbolRows(result, JOKER_SYMBOL_ID);
+    const highlightRows = winRows.filter((row) => !jokerRows.includes(row));
+
+    this.grid.showWins(highlightRows);
     for (const row of winRows) {
       for (let col = 0; col < REEL_COUNT; col++) {
-        this.grid.getVisibleCell(col, row).playWin();
+        const animation = jokerRows.includes(row) ? JOKER_WIN_BIG : undefined;
+        this.grid.getVisibleCell(col, row).playWin(animation);
+      }
+    }
+
+    this.applyJokerFailures(result, jokerRows);
+
+    if (jokerRows.length > 0) {
+      await waitMs(this.jokerPopupDelayMs(jokerRows[0]));
+      if (this.isCurrentSpin(generation)) {
+        await this.jokerPopup.show(() => this.isCurrentSpin(generation));
       }
     }
   }
+
+  private jokerPopupDelayMs(jokerRow: number): number {
+    if (!this.grid) return JOKER_POPUP_FALLBACK_DELAY_MS;
+
+    // Every cell in a joker row is a joker, so any column exposes the win clip.
+    const winSeconds = this.grid.getVisibleCell(0, jokerRow).animationDurationSeconds(JOKER_WIN_BIG);
+    if (winSeconds <= 0) return JOKER_POPUP_FALLBACK_DELAY_MS;
+
+    return winSeconds * 1000 + JOKER_POPUP_POST_WIN_BUFFER_MS;
+  }
+
+  private applyJokerFailures(result: SymbolId[][], jokerRows: number[]): void {
+    if (!this.grid) return;
+
+    for (let row = 0; row < ROW_COUNT; row++) {
+      if (jokerRows.includes(row)) continue;
+      for (let col = 0; col < REEL_COUNT; col++) {
+        if (result[col][row] === JOKER_SYMBOL_ID) {
+          this.grid.getVisibleCell(col, row).playFail();
+        }
+      }
+    }
+  }
+
+  private isCurrentSpin(generation: number): boolean {
+    return this.isActive && this.spinGeneration === generation;
+  }
+}
+
+function waitMs(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }

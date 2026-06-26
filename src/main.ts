@@ -5,6 +5,7 @@ import { createAppLayers } from "./layers";
 import { completeLoading, showLoadingError } from "./loadingScreen";
 import { reportError } from "./reportError";
 import { buildRouteHash, parseRouteHash, type AppTab, type RouteState } from "./router";
+import { JokerPopup } from "./slot/JokerPopup";
 import { SlotTab } from "./slot/SlotTab";
 import { applyActiveTab, bindTabButtons } from "./tabs";
 import "./style.css";
@@ -24,10 +25,11 @@ const gallery = new GalleryTab(app, layers.previewLayer, dom.galleryElements, (s
   }
 });
 
+const jokerPopup = new JokerPopup(app, layers.popupLayer, dom.appRoot);
 const slotDemo = new SlotTab(app, layers.slotLayer, dom.slotButtons, {
   gameRoot: dom.gameRoot,
   stageShell: dom.stageShell
-});
+}, jokerPopup);
 
 function switchTab(tabId: AppTab, updateHash = true): void {
   activeTab = tabId;

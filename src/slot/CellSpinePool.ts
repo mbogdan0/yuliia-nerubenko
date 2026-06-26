@@ -1,4 +1,5 @@
 import { Spine } from "@esotericsoftware/spine-pixi-v8";
+import { stableSlotIdleAnimation } from "../symbols/animations";
 import { getCachedSymbolBounds } from "../symbols/bounds";
 import { symbolsById, getDefaultSymbol } from "../symbols/definitions";
 import { createManualSpine } from "../symbols/spine";
@@ -6,7 +7,7 @@ import type { SymbolId } from "../types";
 import { CELL_H, CELL_W, SLOT_RESOLUTION } from "./config";
 
 // Fraction of the cell dimensions the spine may fill.
-const CELL_FILL_FACTOR = 0.82;
+const DEFAULT_CELL_FILL_FACTOR = 0.82;
 
 const pool = new Map<SymbolId, Spine[]>();
 
@@ -30,13 +31,14 @@ export function acquireCellSpine(id: SymbolId): Spine {
   const definition = symbolsById.get(id) ?? getDefaultSymbol();
   const newSpine = createManualSpine(definition, SLOT_RESOLUTION);
 
-  newSpine.state.setAnimation(0, "Idle", false);
+  newSpine.state.setAnimation(0, stableSlotIdleAnimation(definition), false);
   newSpine.update(0);
 
   const bounds = getCachedSymbolBounds(definition, newSpine);
+  const cellFillFactor = definition.slotFillFactor ?? DEFAULT_CELL_FILL_FACTOR;
   const fitScale = Math.min(
-    (CELL_W * CELL_FILL_FACTOR) / Math.max(bounds.width, 1),
-    (CELL_H * CELL_FILL_FACTOR) / Math.max(bounds.height, 1)
+    (CELL_W * cellFillFactor) / Math.max(bounds.width, 1),
+    (CELL_H * cellFillFactor) / Math.max(bounds.height, 1)
   );
   newSpine.scale.set(fitScale);
   newSpine.x = CELL_W / 2 - (bounds.x + bounds.width / 2) * fitScale;

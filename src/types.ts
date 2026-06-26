@@ -20,12 +20,16 @@ export type SpineAssetSource = {
   atlases: Record<SymbolResolution, AtlasAssetSource>;
 };
 
+export type SymbolAnimationVariants = Record<AnimationName, readonly string[]>;
+
 export type SymbolDefinition = {
   id: SymbolId;
   label: string;
   emoji: string;
   fitSlots: string[];
   fitSlotsSet: ReadonlySet<string>;
+  animationVariants: SymbolAnimationVariants;
+  slotFillFactor?: number;
   asset: SpineAssetSource;
 };
 

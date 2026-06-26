@@ -1,14 +1,14 @@
-import type { AnimationName, SymbolPreview } from "../types";
+import type { SymbolPreview } from "../types";
 
 export const animationMixDurationSeconds = 0.16;
 const fallbackAnimationDurationSeconds = 1;
 
 type AnimationOptions = {
-  animation: AnimationName;
+  animation: string;
   trackTime: number;
   mixDuration: number;
   loop?: boolean;
-  previousAnimation?: AnimationName;
+  previousAnimation?: string;
 };
 
 export function playPreviewAnimation(preview: SymbolPreview, options: AnimationOptions): void {
@@ -37,12 +37,12 @@ export function playPreviewAnimation(preview: SymbolPreview, options: AnimationO
 
 export function getPreviewAnimationDuration(
   preview: SymbolPreview | undefined,
-  animationName: AnimationName
+  animationName: string
 ): number {
   const animation = preview?.spine.skeleton.data.findAnimation(animationName);
   return animation?.duration ?? fallbackAnimationDurationSeconds;
 }
 
-export function hasPreviewAnimation(preview: SymbolPreview, animationName: AnimationName): boolean {
+export function hasPreviewAnimation(preview: SymbolPreview, animationName: string): boolean {
   return preview.spine.skeleton.data.findAnimation(animationName) !== null;
 }

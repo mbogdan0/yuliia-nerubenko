@@ -2,8 +2,15 @@ import { Container, Ticker, type Application } from "pixi.js";
 import { syncRendererToElement } from "../rendererSizing";
 import { SLOT_MAX_RENDER_RESOLUTION } from "../slot/config";
 import type { AnimationName, GalleryMode, SymbolId, SymbolPreview, SymbolResolution } from "../types";
+import { nextAnimationVariant } from "../symbols/animations";
 import { ensureSpineAssets } from "../symbols/assets";
 import { getDefaultSymbol, symbolDefinitions, symbolsById } from "../symbols/definitions";
+import {
+  JOKER_IDLE_INTRO,
+  JOKER_SYMBOL_ID,
+  JokerIdleSequencer,
+  type JokerIdleStep
+} from "../symbols/jokerState";
 import { getGalleryStageHeight, layoutPreviews } from "./layout";
 import { bindControls, renderSymbolButtons, updateControls, type GalleryDomElements } from "./controls";
 import {
@@ -34,8 +41,9 @@ export class GalleryTab {
   private activePreviews: SymbolPreview[] = [];
   private loopElapsedSeconds = new Map<SymbolPreview, number>();
   private animationDurationSeconds = new Map<SymbolPreview, number>();
+  private activeAnimationNames = new Map<SymbolPreview, string>();
+  private jokerSequencers = new Map<SymbolPreview, JokerIdleSequencer>();
   private loopCycleDurationSeconds = LOOP_RESTART_DELAY_SECONDS;
-  private lastAppliedAnimation: AnimationName = "Win";
   private rebuildGeneration = 0;
   private resizeFrame: number | null = null;
 
@@ -58,7 +66,6 @@ export class GalleryTab {
       },
       onAnimationChange: (anim) => {
         if (anim === this.currentAnimation) return;
-        this.lastAppliedAnimation = this.currentAnimation;
         this.currentAnimation = anim;
         this.transitionAnimation();
         this.syncControls();
@@ -135,11 +142,12 @@ export class GalleryTab {
     if (generation !== this.rebuildGeneration) return;
 
     this.activePreviews = loaded.map((symbol) => createSymbolPreview(symbol, GALLERY_RESOLUTION));
-    this.cachePlaybackDurations();
+    this.animationDurationSeconds.clear();
     this.activePreviews.forEach((preview) => {
       this.applyAnimation(preview, 0);
       preview.spine.update(0);
     });
+    this.updateLoopCycleDuration();
 
     for (const preview of this.activePreviews) {
       this.previewLayer.addChild(preview.host);
@@ -150,43 +158,64 @@ export class GalleryTab {
   }
 
   private transitionAnimation(): void {
-    this.cachePlaybackDurations();
+    this.animationDurationSeconds.clear();
     this.activePreviews.forEach((preview) => {
       this.applyAnimation(preview, this.currentAnimation === "Idle" ? 0 : animationMixDurationSeconds);
     });
+    this.updateLoopCycleDuration();
   }
 
-  private applyAnimation(preview: SymbolPreview, mixDuration: number): void {
+  private applyAnimation(preview: SymbolPreview, mixDuration: number, trackTime = 0): number {
+    if (this.currentAnimation === "Idle" && this.isJokerPreview(preview)) {
+      return this.startJokerIdlePreview(preview, mixDuration);
+    }
+
+    this.jokerSequencers.delete(preview);
+    const animation = nextAnimationVariant(preview.definition, this.currentAnimation);
+    const duration = getPreviewAnimationDuration(preview, animation);
+    const previousAnimation = this.activeAnimationNames.get(preview);
+
     playPreviewAnimation(preview, {
-      animation: this.currentAnimation,
-      trackTime: 0,
+      animation,
+      trackTime: Math.min(trackTime, duration),
       mixDuration,
       loop: this.currentAnimation === "Idle",
-      previousAnimation: this.lastAppliedAnimation
+      previousAnimation
     });
 
-    this.loopElapsedSeconds.set(preview, 0);
+    this.activeAnimationNames.set(preview, animation);
+    this.animationDurationSeconds.set(preview, duration);
+    this.loopElapsedSeconds.set(preview, trackTime);
+    return duration;
   }
 
-  private getAnimationDuration(preview: SymbolPreview, animationName: AnimationName): number {
-    return this.animationDurationSeconds.get(preview) ?? getPreviewAnimationDuration(preview, animationName);
+  private getAnimationDuration(preview: SymbolPreview): number {
+    const animation = this.activeAnimationNames.get(preview);
+    return this.animationDurationSeconds.get(preview)
+      ?? getPreviewAnimationDuration(preview, animation ?? this.currentAnimation);
   }
 
   private updatePreviewPlayback(preview: SymbolPreview, deltaSeconds: number): void {
     if (this.currentAnimation === "Idle") {
-      if (hasPreviewAnimation(preview, "Idle")) {
+      if (this.isJokerPreview(preview)) {
+        this.updateJokerIdlePreview(preview, deltaSeconds);
+        return;
+      }
+
+      const animation = this.activeAnimationNames.get(preview);
+      if (animation && hasPreviewAnimation(preview, animation)) {
         preview.spine.update(deltaSeconds);
       }
       return;
     }
 
-    const duration = this.getAnimationDuration(preview, this.currentAnimation);
+    const duration = this.getAnimationDuration(preview);
     const previousElapsed = this.loopElapsedSeconds.get(preview) ?? 0;
     const elapsed = previousElapsed + deltaSeconds;
 
     if (elapsed >= this.loopCycleDurationSeconds) {
       const nextElapsed = elapsed % this.loopCycleDurationSeconds;
-      this.restartLoopPreview(preview, nextElapsed, duration);
+      this.restartLoopPreview(preview, nextElapsed);
       return;
     }
 
@@ -197,28 +226,58 @@ export class GalleryTab {
     }
   }
 
-  private cachePlaybackDurations(): void {
-    this.animationDurationSeconds.clear();
-
+  private updateLoopCycleDuration(): void {
     let longestAnimationDuration = 0;
-    for (const preview of this.activePreviews) {
-      const duration = getPreviewAnimationDuration(preview, this.currentAnimation);
-      this.animationDurationSeconds.set(preview, duration);
+    for (const duration of this.animationDurationSeconds.values()) {
       longestAnimationDuration = Math.max(longestAnimationDuration, duration);
     }
 
     this.loopCycleDurationSeconds = longestAnimationDuration + LOOP_RESTART_DELAY_SECONDS;
   }
 
-  private restartLoopPreview(preview: SymbolPreview, elapsedSeconds: number, duration: number): void {
+  private restartLoopPreview(preview: SymbolPreview, elapsedSeconds: number): void {
+    this.applyAnimation(preview, 0, elapsedSeconds);
+    this.updateLoopCycleDuration();
+    preview.spine.update(0);
+  }
+
+  private startJokerIdlePreview(preview: SymbolPreview, mixDuration: number): number {
+    const hasIntro =
+      hasPreviewAnimation(preview, JOKER_IDLE_INTRO) &&
+      getPreviewAnimationDuration(preview, JOKER_IDLE_INTRO) > 0;
+
+    const sequencer = new JokerIdleSequencer();
+    this.jokerSequencers.set(preview, sequencer);
+    return this.playJokerPreviewStep(preview, sequencer.start(hasIntro), mixDuration);
+  }
+
+  private updateJokerIdlePreview(preview: SymbolPreview, deltaSeconds: number): void {
+    const sequencer = this.jokerSequencers.get(preview);
+    const animation = this.activeAnimationNames.get(preview);
+    if (!sequencer || !animation || !hasPreviewAnimation(preview, animation)) return;
+
+    preview.spine.update(deltaSeconds);
+
+    const step = sequencer.advance(deltaSeconds, this.getAnimationDuration(preview));
+    if (step) this.playJokerPreviewStep(preview, step, 0);
+  }
+
+  private playJokerPreviewStep(preview: SymbolPreview, step: JokerIdleStep, mixDuration: number): number {
+    const duration = getPreviewAnimationDuration(preview, step.animation);
+    const previousAnimation = this.activeAnimationNames.get(preview);
+
     playPreviewAnimation(preview, {
-      animation: this.currentAnimation,
-      trackTime: Math.min(elapsedSeconds, duration),
-      mixDuration: 0
+      animation: step.animation,
+      trackTime: 0,
+      mixDuration,
+      loop: false,
+      previousAnimation
     });
 
-    this.loopElapsedSeconds.set(preview, elapsedSeconds);
-    preview.spine.update(0);
+    this.activeAnimationNames.set(preview, step.animation);
+    this.animationDurationSeconds.set(preview, duration);
+    this.loopElapsedSeconds.set(preview, 0);
+    return duration;
   }
 
   private getSymbolsForCurrentMode() {
@@ -298,7 +357,13 @@ export class GalleryTab {
     this.activePreviews = [];
     this.loopElapsedSeconds.clear();
     this.animationDurationSeconds.clear();
+    this.activeAnimationNames.clear();
+    this.jokerSequencers.clear();
     this.loopCycleDurationSeconds = LOOP_RESTART_DELAY_SECONDS;
     this.previewLayer.removeChildren();
+  }
+
+  private isJokerPreview(preview: SymbolPreview): boolean {
+    return preview.id === JOKER_SYMBOL_ID;
   }
 }

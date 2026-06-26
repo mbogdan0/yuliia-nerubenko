@@ -2,6 +2,7 @@ import { Container } from "pixi.js";
 
 export type AppLayers = {
   galleryLayer: Container;
+  popupLayer: Container;
   previewLayer: Container;
   slotLayer: Container;
   stageRoot: Container;
@@ -17,10 +18,13 @@ export function createAppLayers(): AppLayers {
   const slotLayer = new Container();
   slotLayer.visible = false;
 
-  stageRoot.addChild(galleryLayer, slotLayer);
+  const popupLayer = new Container();
+
+  stageRoot.addChild(galleryLayer, slotLayer, popupLayer);
 
   return {
     galleryLayer,
+    popupLayer,
     previewLayer,
     slotLayer,
     stageRoot

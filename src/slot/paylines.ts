@@ -9,6 +9,14 @@ export function checkHorizontalWins(result: SymbolId[][]): number[] {
   return winRows;
 }
 
+export function checkHorizontalSymbolRows(result: SymbolId[][], symbolId: SymbolId): number[] {
+  const rows: number[] = [];
+  for (let row = 0; row < ROW_COUNT; row++) {
+    if (result.every((col) => col[row] === symbolId)) rows.push(row);
+  }
+  return rows;
+}
+
 function isHorizontalWin(result: SymbolId[][], row: number): boolean {
   const first = result[0][row];
   return result.every((col) => col[row] === first);
