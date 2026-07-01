@@ -15,6 +15,11 @@ export function chooseNextJokerIdleAnimation(): string {
   return roll < 0.9 ? JOKER_IDLE_SECONDARY : JOKER_IDLE_TERTIARY;
 }
 
+/** Weighted pick for the joker win clip: favors win_1 over the bigger win_2. */
+export function pickJokerWinAnimation(): string {
+  return Math.random() < 0.7 ? JOKER_WIN_NORMAL : JOKER_WIN_BIG;
+}
+
 export type JokerIdleStep = {
   animation: string;
   state: JokerPlaybackState;

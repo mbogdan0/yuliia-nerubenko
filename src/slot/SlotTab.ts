@@ -4,7 +4,7 @@ import { reportError } from "../reportError";
 import { syncRendererToElement } from "../rendererSizing";
 import { ensureSpineAssets } from "../symbols/assets";
 import { symbolDefinitions } from "../symbols/definitions";
-import { JOKER_SYMBOL_ID, JOKER_WIN_BIG } from "../symbols/jokerState";
+import { JOKER_SYMBOL_ID, pickJokerWinAnimation } from "../symbols/jokerState";
 import type { SymbolId } from "../types";
 import {
   REEL_COUNT,
@@ -186,10 +186,13 @@ export class SlotTab {
     const jokerRows = checkHorizontalSymbolRows(result, JOKER_SYMBOL_ID);
     const highlightRows = winRows.filter((row) => !jokerRows.includes(row));
 
+    // One weighted pick per joker row, shared by every cell in that row so they stay in sync.
+    const jokerRowAnimations = new Map(jokerRows.map((row) => [row, pickJokerWinAnimation()]));
+
     this.grid.showWins(highlightRows);
     for (const row of winRows) {
       for (let col = 0; col < REEL_COUNT; col++) {
-        const animation = jokerRows.includes(row) ? JOKER_WIN_BIG : undefined;
+        const animation = jokerRowAnimations.get(row);
         this.grid.getVisibleCell(col, row).playWin(animation);
       }
     }
@@ -197,18 +200,19 @@ export class SlotTab {
     this.applyJokerFailures(result, jokerRows);
 
     if (jokerRows.length > 0) {
-      await waitMs(this.jokerPopupDelayMs(jokerRows[0]));
+      const firstJokerRow = jokerRows[0];
+      await waitMs(this.jokerPopupDelayMs(firstJokerRow, jokerRowAnimations.get(firstJokerRow)));
       if (this.isCurrentSpin(generation)) {
         await this.jokerPopup.show(() => this.isCurrentSpin(generation));
       }
     }
   }
 
-  private jokerPopupDelayMs(jokerRow: number): number {
-    if (!this.grid) return JOKER_POPUP_FALLBACK_DELAY_MS;
+  private jokerPopupDelayMs(jokerRow: number, winAnimation?: string): number {
+    if (!this.grid || !winAnimation) return JOKER_POPUP_FALLBACK_DELAY_MS;
 
     // Every cell in a joker row is a joker, so any column exposes the win clip.
-    const winSeconds = this.grid.getVisibleCell(0, jokerRow).animationDurationSeconds(JOKER_WIN_BIG);
+    const winSeconds = this.grid.getVisibleCell(0, jokerRow).animationDurationSeconds(winAnimation);
     if (winSeconds <= 0) return JOKER_POPUP_FALLBACK_DELAY_MS;
 
     return winSeconds * 1000 + JOKER_POPUP_POST_WIN_BUFFER_MS;

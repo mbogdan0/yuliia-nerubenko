@@ -1,13 +1,15 @@
 import { Spine } from "@esotericsoftware/spine-pixi-v8";
 import { Assets, Container, Graphics, type Application } from "pixi.js";
 import { animationMixDurationSeconds } from "../gallery/playback";
+import { isGalleryDesktopViewport } from "../gallery/responsive";
 
 const POPUP_ASSET_BASE = `${import.meta.env.BASE_URL}popups/joker`;
 const POPUP_SKELETON_ALIAS = "jokerPopupSkeleton";
 const POPUP_ATLAS_ALIAS = "jokerPopupAtlas";
 const POPUP_AUTO_CLOSE_SECONDS = 10;
 const POPUP_IDLE_DELAY_SECONDS = 0.25;
-const POPUP_MAX_SCREEN_FILL = 0.96;
+const POPUP_MAX_SCREEN_FILL_COMPACT = 0.96;
+const POPUP_MAX_SCREEN_FILL_DESKTOP = 1.39;
 
 type PopupState = "hidden" | "intro" | "idle" | "outro";
 type PopupBounds = { x: number; y: number; width: number; height: number };
@@ -169,9 +171,14 @@ export class JokerPopup {
     if (!this.spine) return;
 
     const bounds = this.popupBounds ?? this.spine.skeleton.getBoundsRect();
+    // Use the actual window size, not the Pixi stage's (much smaller) internal
+    // resolution, to match the breakpoint every other desktop/compact check uses.
+    const fill = isGalleryDesktopViewport(window.innerWidth, window.innerHeight)
+      ? POPUP_MAX_SCREEN_FILL_DESKTOP
+      : POPUP_MAX_SCREEN_FILL_COMPACT;
     const scale = Math.min(
-      (this.app.screen.width * POPUP_MAX_SCREEN_FILL) / Math.max(bounds.width, 1),
-      (this.app.screen.height * POPUP_MAX_SCREEN_FILL) / Math.max(bounds.height, 1)
+      (this.app.screen.width * fill) / Math.max(bounds.width, 1),
+      (this.app.screen.height * fill) / Math.max(bounds.height, 1)
     );
 
     this.spine.scale.set(scale);
