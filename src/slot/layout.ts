@@ -1,4 +1,4 @@
-import { SLOT_GRID_H, SLOT_GRID_VISUAL_PADDING, SLOT_GRID_W } from "./config";
+import { SLOT_GRID_H, SLOT_GRID_VISUAL_PADDING } from "./config";
 
 export type SlotGridLayout = {
   x: number;
@@ -6,11 +6,11 @@ export type SlotGridLayout = {
   scale: number;
 };
 
-export function calculateSlotGridLayout(screenW: number, screenH: number): SlotGridLayout {
+export function calculateSlotGridLayout(screenW: number, screenH: number, gridW: number): SlotGridLayout {
   const availableW = Math.max(1, screenW - SLOT_GRID_VISUAL_PADDING * 2);
   const availableH = Math.max(1, screenH - SLOT_GRID_VISUAL_PADDING * 2);
-  const scale = Math.min(1, availableW / SLOT_GRID_W, availableH / SLOT_GRID_H);
-  const scaledW = SLOT_GRID_W * scale;
+  const scale = Math.min(1, availableW / gridW, availableH / SLOT_GRID_H);
+  const scaledW = gridW * scale;
   const scaledH = SLOT_GRID_H * scale;
 
   return {

@@ -3,23 +3,37 @@ import type { SymbolResolution } from "../types";
 // The Slot demo renders the optimized low-resolution atlas (the Gallery uses high).
 export const SLOT_RESOLUTION: SymbolResolution = "low";
 
-export const REEL_COUNT = 3;
+// Reel columns are viewport-driven: desktop (landscape ≥900px) shows 4, everything
+// else (mobile/portrait) shows 3. Rows never change. Resolve via resolveReelCount().
+export const REEL_COUNT_COMPACT = 3;
+export const REEL_COUNT_DESKTOP = 4;
 export const ROW_COUNT = 3;
-export const CELL_W = 190;          // cell width in px
-export const CELL_H = 200;          // cell height in px
+export const CELL_W = 190 * 0.96;          // cell width in px
+export const CELL_H = 200 * 0.96;          // cell height in px
 
-export const SLOT_GRID_W = REEL_COUNT * CELL_W;
+export function resolveReelCount(isCompact: boolean): number {
+  return isCompact ? REEL_COUNT_COMPACT : REEL_COUNT_DESKTOP;
+}
+
 export const SLOT_GRID_H = ROW_COUNT * CELL_H;
 export const SLOT_GRID_VISUAL_PADDING = 8;
-export const SLOT_STAGE_MAX_WIDTH = SLOT_GRID_W + SLOT_GRID_VISUAL_PADDING * 2;
 export const SLOT_STAGE_MAX_HEIGHT = SLOT_GRID_H + SLOT_GRID_VISUAL_PADDING * 2;
+
+// Grid width and stage width depend on the active reel count, so they are helpers
+// rather than constants — the stage re-sizes when the reel count switches.
+export function slotGridWidth(reelCount: number): number {
+  return reelCount * CELL_W;
+}
+export function slotStageMaxWidth(reelCount: number): number {
+  return slotGridWidth(reelCount) + SLOT_GRID_VISUAL_PADDING * 2;
+}
 // Fit-to-viewport-height floor: the stage never shrinks narrower than this to
 // stay readable; below it the page scrolls instead (e.g. landscape phones).
 export const SLOT_STAGE_MIN_WIDTH = 280;
 
 // --- Motion model (position-based; all units are CELLS unless noted) ---
 // The reel tracks a continuous scroll `position`. Row r shows strip index position+r.
-export const SPIN_CELLS_PER_SEC = 16;   // free-spin speed (cells/s) ≈ 2000 px/s
+export const SPIN_CELLS_PER_SEC = 15;   // free-spin speed (cells/s)
 export const SPIN_ACCEL_TIME = 0.2;   // s — quick ease-in to full speed at spin start
 export const STOP_MIN_CELLS = 2;       // min cells travelled during the stop deceleration
 export const STOP_DURATION_MIN = 0.15;  // s — clamp for the stop tween

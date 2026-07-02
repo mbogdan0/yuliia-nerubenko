@@ -4,10 +4,10 @@ import { Reel } from "./Reel";
 import {
   CELL_H,
   CELL_W,
-  REEL_COUNT,
   REEL_STOP_DELAY,
   REEL_STOP_DELAY_JITTER,
   ROW_COUNT,
+  slotGridWidth,
   SPIN_MIN_DURATION
 } from "./config";
 import { rand } from "../utils";
@@ -47,13 +47,14 @@ export class SlotGrid {
   constructor(
     definitions: SymbolDefinition[],
     private readonly layer: Container,
-    private readonly app: Application
+    private readonly app: Application,
+    private readonly reelCount: number
   ) {
     this.definitions = definitions;
     this.gridRoot = new Container();
     this.layer.addChild(this.gridRoot);
 
-    const gridW = REEL_COUNT * CELL_W;
+    const gridW = slotGridWidth(this.reelCount);
     const gridH = ROW_COUNT * CELL_H;
 
     // Background panel behind the reels.
@@ -67,7 +68,7 @@ export class SlotGrid {
     const viewport = new Container();
     this.gridRoot.addChild(viewport);
 
-    for (let i = 0; i < REEL_COUNT; i++) {
+    for (let i = 0; i < this.reelCount; i++) {
       const reel = new Reel(definitions);
       reel.x = i * CELL_W;
       this.reels.push(reel);
@@ -79,7 +80,7 @@ export class SlotGrid {
     viewport.mask = clip;
 
     // Vertical separators on top of the reels.
-    for (let i = 1; i < REEL_COUNT; i++) {
+    for (let i = 1; i < this.reelCount; i++) {
       const sep = new Graphics()
         .moveTo(i * CELL_W, 0)
         .lineTo(i * CELL_W, gridH);
@@ -120,7 +121,7 @@ export class SlotGrid {
 
     await this.waitSeconds(SPIN_MIN_DURATION / 1000);
 
-    const result = createSpinResult(mode, this.definitions);
+    const result = createSpinResult(mode, this.definitions, this.reelCount);
 
     for (let i = 0; i < this.reels.length; i++) {
       // Jitter the gap between stops so the cascade doesn't feel metronomic.
@@ -178,10 +179,21 @@ export class SlotGrid {
   }
 
   onResize(): void {
-    const layout = calculateSlotGridLayout(this.app.screen.width, this.app.screen.height);
+    const layout = calculateSlotGridLayout(
+      this.app.screen.width,
+      this.app.screen.height,
+      slotGridWidth(this.reelCount)
+    );
 
     this.gridRoot.scale.set(layout.scale);
     this.gridRoot.x = layout.x;
     this.gridRoot.y = layout.y;
+  }
+
+  /** Tear down the grid's display objects so SlotTab can rebuild it at a new reel count. */
+  destroy(): void {
+    this.pendingTimers.length = 0;
+    this.layer.removeChild(this.gridRoot);
+    this.gridRoot.destroy({ children: true });
   }
 }

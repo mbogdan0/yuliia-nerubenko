@@ -1,5 +1,5 @@
 import type { SymbolDefinition, SymbolId } from "../types";
-import { REEL_COUNT, ROW_COUNT } from "./config";
+import { ROW_COUNT } from "./config";
 
 export type SpinMode = "random" | "guaranteed-win";
 
@@ -15,26 +15,27 @@ function nextGuaranteedWinSymbol(definitions: SymbolDefinition[]): SymbolId {
   return symbol.id;
 }
 
-export function createRandomResult(definitions: SymbolDefinition[]): SymbolId[][] {
-  return Array.from({ length: REEL_COUNT }, () =>
+export function createRandomResult(definitions: SymbolDefinition[], reelCount: number): SymbolId[][] {
+  return Array.from({ length: reelCount }, () =>
     Array.from({ length: ROW_COUNT }, () => randomItem(definitions).id)
   );
 }
 
-export function createGuaranteedWinResult(definitions: SymbolDefinition[]): SymbolId[][] {
-  const result = createRandomResult(definitions);
-  const winningRow = Math.floor(Math.random() * ROW_COUNT);
+export function createGuaranteedWinResult(definitions: SymbolDefinition[], reelCount: number): SymbolId[][] {
+  const result = createRandomResult(definitions, reelCount);
+  // Guaranteed wins always land on the center line.
+  const winningRow = Math.floor(ROW_COUNT / 2);
   const winningSymbol = nextGuaranteedWinSymbol(definitions);
 
-  for (let col = 0; col < REEL_COUNT; col++) {
+  for (let col = 0; col < reelCount; col++) {
     result[col][winningRow] = winningSymbol;
   }
 
   return result;
 }
 
-export function createSpinResult(mode: SpinMode, definitions: SymbolDefinition[]): SymbolId[][] {
+export function createSpinResult(mode: SpinMode, definitions: SymbolDefinition[], reelCount: number): SymbolId[][] {
   return mode === "guaranteed-win"
-    ? createGuaranteedWinResult(definitions)
-    : createRandomResult(definitions);
+    ? createGuaranteedWinResult(definitions, reelCount)
+    : createRandomResult(definitions, reelCount);
 }

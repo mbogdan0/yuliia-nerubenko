@@ -5,15 +5,15 @@ import { syncRendererToElement } from "../rendererSizing";
 import { ensureSpineAssets } from "../symbols/assets";
 import { symbolDefinitions } from "../symbols/definitions";
 import { JOKER_SYMBOL_ID, pickJokerWinAnimation } from "../symbols/jokerState";
-import type { SymbolId } from "../types";
+import type { SymbolDefinition, SymbolId } from "../types";
 import {
-  REEL_COUNT,
+  resolveReelCount,
   ROW_COUNT,
   SLOT_COMPACT_RENDER_RESOLUTION,
   SLOT_MAX_RENDER_RESOLUTION,
   SLOT_RESOLUTION,
   SLOT_STAGE_MAX_HEIGHT,
-  SLOT_STAGE_MAX_WIDTH,
+  slotStageMaxWidth,
   SLOT_STAGE_MIN_WIDTH
 } from "./config";
 import { JokerPopup, preloadJokerPopupAssets } from "./JokerPopup";
@@ -38,6 +38,9 @@ type SlotLayoutRefs = {
 
 export class SlotTab {
   private grid: SlotGrid | null = null;
+  private loadedDefinitions: SymbolDefinition[] | null = null;
+  private isCompactMode = false;
+  private pendingRebuild = false;
   private resizeFrame: number | null = null;
   private activationFrame: number | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -54,13 +57,23 @@ export class SlotTab {
   ) {}
 
   async init(): Promise<void> {
-    const loaded = await ensureSpineAssets(symbolDefinitions, SLOT_RESOLUTION);
+    this.loadedDefinitions = await ensureSpineAssets(symbolDefinitions, SLOT_RESOLUTION);
 
-    this.setStageSizingVars();
-    this.grid = new SlotGrid(loaded, this.layer, this.app);
+    this.isCompactMode = this.shouldUseCompactSlotMode();
+    this.buildGrid();
     this.observeStageResize();
     this.onResize();
     this.bindControls();
+  }
+
+  // Reel count is viewport-driven, so the grid is (re)built for the current mode.
+  // Assets are already cached by ensureSpineAssets, so a rebuild is synchronous.
+  private buildGrid(): void {
+    if (!this.loadedDefinitions) return;
+    this.grid?.destroy();
+    const reelCount = resolveReelCount(this.isCompactMode);
+    this.grid = new SlotGrid(this.loadedDefinitions, this.layer, this.app, reelCount);
+    this.setStageSizingVars(reelCount);
   }
 
   private bindControls(): void {
@@ -119,14 +132,26 @@ export class SlotTab {
     if (!this.isActive) return;
 
     this.syncRendererToGameRoot();
-    this.grid?.setReducedMotionWork(this.shouldUseCompactSlotMode());
+
+    // A tablet rotating across the breakpoint flips the reel count (desktop 4 ↔
+    // compact 3). Rebuild the grid to match — but never mid-spin, or the awaited
+    // spin promises would be torn down and leave the controls disabled. Defer to
+    // the spin's finally block in that case.
+    const nextCompact = this.shouldUseCompactSlotMode();
+    if (nextCompact !== this.isCompactMode) {
+      this.isCompactMode = nextCompact;
+      if (this.isSpinning) this.pendingRebuild = true;
+      else this.buildGrid();
+    }
+
+    this.grid?.setReducedMotionWork(this.isCompactMode);
     this.grid?.onResize();
     this.jokerPopup.layout();
   }
 
-  private setStageSizingVars(): void {
+  private setStageSizingVars(reelCount: number): void {
     const shellStyle = this.layoutRefs.stageShell.style;
-    shellStyle.setProperty("--slot-stage-w", `${Math.round(SLOT_STAGE_MAX_WIDTH)}`);
+    shellStyle.setProperty("--slot-stage-w", `${Math.round(slotStageMaxWidth(reelCount))}`);
     shellStyle.setProperty("--slot-stage-h", `${Math.round(SLOT_STAGE_MAX_HEIGHT)}`);
     shellStyle.setProperty("--slot-stage-min-width", `${SLOT_STAGE_MIN_WIDTH}px`);
   }
@@ -167,6 +192,14 @@ export class SlotTab {
       await this.applyWins(result, generation);
     } finally {
       this.isSpinning = false;
+      // A breakpoint flip during the spin was deferred to here; apply it now that
+      // the grid is idle and its spin promises have all resolved.
+      if (this.pendingRebuild) {
+        this.pendingRebuild = false;
+        this.buildGrid();
+        this.grid?.setReducedMotionWork(this.isCompactMode);
+        this.grid?.onResize();
+      }
       this.syncControlsDisabled();
     }
   }
@@ -191,7 +224,7 @@ export class SlotTab {
 
     this.grid.showWins(highlightRows);
     for (const row of winRows) {
-      for (let col = 0; col < REEL_COUNT; col++) {
+      for (let col = 0; col < result.length; col++) {
         const animation = jokerRowAnimations.get(row);
         this.grid.getVisibleCell(col, row).playWin(animation);
       }
@@ -223,7 +256,7 @@ export class SlotTab {
 
     for (let row = 0; row < ROW_COUNT; row++) {
       if (jokerRows.includes(row)) continue;
-      for (let col = 0; col < REEL_COUNT; col++) {
+      for (let col = 0; col < result.length; col++) {
         if (result[col][row] === JOKER_SYMBOL_ID) {
           this.grid.getVisibleCell(col, row).playFail();
         }
