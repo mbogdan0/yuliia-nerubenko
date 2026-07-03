@@ -35,14 +35,17 @@ export const SLOT_STAGE_MIN_WIDTH = 280;
 // The reel tracks a continuous scroll `position`. Row r shows strip index position+r.
 export const SPIN_CELLS_PER_SEC = 15;   // free-spin speed (cells/s)
 export const SPIN_ACCEL_TIME = 0.2;   // s — quick ease-in to full speed at spin start
-export const STOP_MIN_CELLS = 2;       // min cells travelled during the stop deceleration
+export const STOP_MIN_CELLS = 3;       // min cells travelled during the stop deceleration
 export const STOP_DURATION_MIN = 0.15;  // s — clamp for the stop tween
-export const STOP_DURATION_MAX = 0.85;  // s
+// Keep the max above the velocity-matched duration ((overshoot+3)·cells/speed,
+// ≈1.12s worst case with the current constants) so the clamp never bites — a
+// clamped duration makes the reel visibly speed up when the stop tween begins.
+export const STOP_DURATION_MAX = 1.2;   // s
 // Landing overshoot: the reel springs ~this fraction of a cell past the target
 // before settling, giving a tactile "thunk" on each stop.
 //   ~1.7 ≈ classic easeOutBack (~10% overshoot); 0 = no bounce (plain easeOut).
-// Keep modest (≈1.5–2.0): larger values overshoot more than one cell.
-export const STOP_OVERSHOOT = 1.73;
+// 1.2 ≈ gentle ~6% overshoot; keep modest (<2.0): larger values overshoot more than one cell.
+export const STOP_OVERSHOOT = 1.2;
 
 // Direction symbols travel during a spin. Real reels fall (content moves down),
 // which the strip math does as `scroll` decreases. -1 = down (real), +1 = up.
@@ -58,10 +61,12 @@ export const SPIN_WINDUP_TIME = 0.09;  // s spent on the recoil
 export const SPIN_SPEED_JITTER = 0;     // ± fraction on free-spin speed (per reel, per spin)
 export const STOP_EXTRA_CELLS_MAX = 0;  // 0..N extra whole cells added to each stop's travel
 export const STOP_OVERSHOOT_JITTER = 0; // ± fraction on landing overshoot (per stop)
-export const REEL_STOP_DELAY_JITTER = 0; // ± ms on the gap between sequential reel stops
+export const REEL_STOP_DELAY_JITTER = 0; // ± ms on the gap between sequential reel stop starts
 
 export const SPIN_MIN_DURATION = 700; // ms of free spin before reels begin stopping
-export const REEL_STOP_DELAY = 150;    // ms between sequential reel stops
+// Gap between sequential reel stop STARTS — decelerations overlap, so this sets
+// the cascade rhythm while the previous reel is still settling.
+export const REEL_STOP_DELAY = 300;    // ms
 
 export const SLOT_MAX_RENDER_RESOLUTION = 2;
 export const SLOT_COMPACT_RENDER_RESOLUTION = 1.5;

@@ -123,14 +123,18 @@ export class SlotGrid {
 
     const result = createSpinResult(mode, this.definitions, this.reelCount);
 
+    // Stops overlap: each reel BEGINS stopping on a fixed stagger while the
+    // previous one is still decelerating, instead of waiting for it to settle.
+    const stops: Promise<void>[] = [];
     for (let i = 0; i < this.reels.length; i++) {
-      // Jitter the gap between stops so the cascade doesn't feel metronomic.
+      // Jitter the gap between stop starts so the cascade doesn't feel metronomic.
       if (i > 0) {
         const jitterDelay = Math.max(0, REEL_STOP_DELAY + rand(-REEL_STOP_DELAY_JITTER, REEL_STOP_DELAY_JITTER));
         await this.waitSeconds(jitterDelay / 1000);
       }
-      await this.reels[i].stop(result[i]);
+      stops.push(this.reels[i].stop(result[i]));
     }
+    await Promise.all(stops);
 
     return this.getVisibleResult();
   }
