@@ -11,7 +11,9 @@ type TabViewOptions = {
 
 export function applyActiveTab(tabId: AppTab, options: TabViewOptions): void {
   for (const btn of options.dom.tabButtons) {
-    btn.classList.toggle("is-active", btn.dataset.tab === tabId);
+    const isActive = btn.dataset.tab === tabId;
+    btn.classList.toggle("is-active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
   }
 
   options.dom.galleryPanel.classList.toggle("is-hidden", tabId !== "gallery");

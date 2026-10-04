@@ -1,9 +1,12 @@
 import { Container, Ticker, type Application } from "pixi.js";
 import { syncRendererToElement } from "../rendererSizing";
+import { setStageLoading, showStageLoadingError } from "../loadingScreen";
+import { reportError } from "../reportError";
 import { SLOT_MAX_RENDER_RESOLUTION } from "../slot/config";
-import type { AnimationName, GalleryMode, SymbolId, SymbolPreview, SymbolResolution } from "../types";
+import type { AnimationName, GalleryMode, SymbolDefinition, SymbolId, SymbolPreview, SymbolResolution } from "../types";
 import { nextAnimationVariant } from "../symbols/animations";
 import { ensureSpineAssets } from "../symbols/assets";
+import { getCachedSymbolBounds } from "../symbols/bounds";
 import { getDefaultSymbol, symbolDefinitions, symbolsById } from "../symbols/definitions";
 import {
   JOKER_IDLE_INTRO,
@@ -46,6 +49,9 @@ export class GalleryTab {
   private loopCycleDurationSeconds = LOOP_RESTART_DELAY_SECONDS;
   private rebuildGeneration = 0;
   private resizeFrame: number | null = null;
+  private visibilityFrame: number | null = null;
+  private controlsBound = false;
+  private renderedState: GalleryRouteState | null = null;
 
   constructor(
     private readonly app: Application,
@@ -54,12 +60,24 @@ export class GalleryTab {
     private readonly onStateChange?: (state: GalleryRouteState) => void
   ) {}
 
-  async init(): Promise<void> {
+  async init(state: GalleryRouteState = this.getRouteState()): Promise<void> {
+    this.currentMode = state.mode;
+    this.selectedSymbolId = symbolsById.has(state.selectedSymbolId) ? state.selectedSymbolId : getDefaultSymbol().id;
+    if (!this.controlsBound) {
+      this.bindControls();
+      this.controlsBound = true;
+    }
+
+    this.syncControls();
+    await this.rebuildGallery();
+  }
+
+  private bindControls(): void {
     renderSymbolButtons(this.elements, symbolDefinitions);
 
     bindControls(this.elements, {
       onModeChange: async (mode) => {
-        if (mode === this.currentMode) return;
+        if (mode === this.currentMode && this.hasRenderedCurrentState()) return;
         this.currentMode = mode;
         await this.rebuildGallery();
         this.notifyStateChange();
@@ -71,7 +89,7 @@ export class GalleryTab {
         this.syncControls();
       },
       onSymbolChange: async (id) => {
-        if (id === this.selectedSymbolId && this.currentMode === "focus") return;
+        if (id === this.selectedSymbolId && this.currentMode === "focus" && this.hasRenderedCurrentState()) return;
         this.selectedSymbolId = id;
         this.currentMode = "focus";
         await this.rebuildGallery();
@@ -79,8 +97,8 @@ export class GalleryTab {
       }
     });
 
-    this.syncControls();
-    await this.rebuildGallery();
+    window.addEventListener("scroll", this.scheduleVisibilityUpdate, { passive: true });
+    window.visualViewport?.addEventListener("scroll", this.scheduleVisibilityUpdate, { passive: true });
   }
 
   getRouteState(): GalleryRouteState {
@@ -94,7 +112,7 @@ export class GalleryTab {
     const selectedSymbol = symbolsById.get(state.selectedSymbolId) ?? getDefaultSymbol();
     const nextMode = state.mode;
 
-    if (nextMode === this.currentMode && selectedSymbol.id === this.selectedSymbolId) {
+    if (nextMode === this.currentMode && selectedSymbol.id === this.selectedSymbolId && this.hasRenderedCurrentState()) {
       this.syncControls();
       this.layout();
       return;
@@ -107,9 +125,22 @@ export class GalleryTab {
 
   tick(ticker: Ticker): void {
     const deltaSeconds = ticker.deltaMS / 1000;
+    const elapsed = (this.loopElapsedSeconds.get(this.activePreviews[0]) ?? 0) + deltaSeconds;
+    const restartCycle = this.currentAnimation === "Win" && elapsed >= this.loopCycleDurationSeconds;
+
+    if (restartCycle) {
+      const nextElapsed = elapsed % this.loopCycleDurationSeconds;
+      // Pick every variant against the same cycle boundary. Recomputing the
+      // cycle halfway through a row can leave later previews one loop behind.
+      for (const preview of this.activePreviews) {
+        this.applyAnimation(preview, 0, nextElapsed);
+        if (preview.host.renderable) preview.spine.update(0);
+      }
+      this.updateLoopCycleDuration();
+    }
 
     for (const preview of this.activePreviews) {
-      this.updatePreviewPlayback(preview, deltaSeconds);
+      if (!restartCycle) this.updatePreviewPlayback(preview, deltaSeconds);
       this.fadePreview(preview, deltaSeconds);
     }
 
@@ -133,14 +164,26 @@ export class GalleryTab {
     // rebuilds (each awaits asset loading). Without it, a slower earlier rebuild
     // could resume after a newer one and leak orphaned previews into the layer.
     const generation = ++this.rebuildGeneration;
-
-    this.destroyPreviews();
+    this.syncControls();
+    if (this.previewLayer.parent?.visible) setStageLoading(this.elements.gameRoot, true);
 
     const symbols = this.getSymbolsForCurrentMode();
 
-    const loaded = await ensureSpineAssets(symbols, GALLERY_RESOLUTION);
+    let loaded: SymbolDefinition[];
+    try {
+      loaded = await ensureSpineAssets(symbols, GALLERY_RESOLUTION);
+      if (loaded.length === 0) throw new Error("No gallery symbols could be loaded.");
+    } catch (error) {
+      if (generation === this.rebuildGeneration && this.previewLayer.parent?.visible) {
+        showStageLoadingError(this.elements.gameRoot, () => {
+          this.rebuildGallery().then(() => this.notifyStateChange()).catch(reportError);
+        });
+      }
+      throw error;
+    }
     if (generation !== this.rebuildGeneration) return;
 
+    this.destroyPreviews();
     this.activePreviews = loaded.map((symbol) => createSymbolPreview(symbol, GALLERY_RESOLUTION));
     this.animationDurationSeconds.clear();
     this.activePreviews.forEach((preview) => {
@@ -153,14 +196,18 @@ export class GalleryTab {
       this.previewLayer.addChild(preview.host);
     }
 
+    this.renderedState = this.getRouteState();
     this.syncControls();
     this.layout();
+    if (this.previewLayer.parent?.visible) setStageLoading(this.elements.gameRoot, false);
   }
 
   private transitionAnimation(): void {
     this.animationDurationSeconds.clear();
     this.activePreviews.forEach((preview) => {
       this.applyAnimation(preview, this.currentAnimation === "Idle" ? 0 : animationMixDurationSeconds);
+      // Static Idle clips need their pose applied before frame updates can stop.
+      preview.spine.update(0);
     });
     this.updateLoopCycleDuration();
   }
@@ -178,7 +225,7 @@ export class GalleryTab {
     playPreviewAnimation(preview, {
       animation,
       trackTime: Math.min(trackTime, duration),
-      mixDuration,
+      mixDuration: preview.host.renderable ? mixDuration : 0,
       loop: this.currentAnimation === "Idle",
       previousAnimation
     });
@@ -197,13 +244,17 @@ export class GalleryTab {
 
   private updatePreviewPlayback(preview: SymbolPreview, deltaSeconds: number): void {
     if (this.currentAnimation === "Idle") {
+      if (!preview.host.renderable) return;
       if (this.isJokerPreview(preview)) {
         this.updateJokerIdlePreview(preview, deltaSeconds);
         return;
       }
 
       const animation = this.activeAnimationNames.get(preview);
-      if (animation && hasPreviewAnimation(preview, animation)) {
+      const track = preview.spine.state.getTrack(0);
+      if (animation && hasPreviewAnimation(preview, animation)
+        && (this.getAnimationDuration(preview) > 0 || track?.mixingFrom || track?.next
+          || preview.spine.skeleton.physics.length > 0)) {
         preview.spine.update(deltaSeconds);
       }
       return;
@@ -213,15 +264,9 @@ export class GalleryTab {
     const previousElapsed = this.loopElapsedSeconds.get(preview) ?? 0;
     const elapsed = previousElapsed + deltaSeconds;
 
-    if (elapsed >= this.loopCycleDurationSeconds) {
-      const nextElapsed = elapsed % this.loopCycleDurationSeconds;
-      this.restartLoopPreview(preview, nextElapsed);
-      return;
-    }
-
     this.loopElapsedSeconds.set(preview, elapsed);
 
-    if (previousElapsed < duration) {
+    if (preview.host.renderable && previousElapsed < duration) {
       preview.spine.update(Math.min(deltaSeconds, duration - previousElapsed));
     }
   }
@@ -233,12 +278,6 @@ export class GalleryTab {
     }
 
     this.loopCycleDurationSeconds = longestAnimationDuration + LOOP_RESTART_DELAY_SECONDS;
-  }
-
-  private restartLoopPreview(preview: SymbolPreview, elapsedSeconds: number): void {
-    this.applyAnimation(preview, 0, elapsedSeconds);
-    this.updateLoopCycleDuration();
-    preview.spine.update(0);
   }
 
   private startJokerIdlePreview(preview: SymbolPreview, mixDuration: number): number {
@@ -292,13 +331,11 @@ export class GalleryTab {
   }
 
   private layout(): void {
-    // 1) Size the canvas to the stage box to learn its current width. 2) Compute
-    // the stage height from that exact width. 3) Re-sync so the canvas adopts the
-    // new height. 4) Lay out. Deriving the height and the grid from the same
-    // app.screen.width keeps them consistent — the canvas is always exactly tall
-    // enough for every row, so nothing is clipped after a resize.
-    this.syncRendererToGameRoot();
-    this.updateStageHeight();
+    // Asset loads can finish after navigation; the active tab owns the renderer.
+    if (!this.previewLayer.parent?.visible) return;
+    // Derive height from the same rounded width used by the renderer. Apply both
+    // dimensions in one resize, avoiding a temporary backing store allocation.
+    this.updateStageHeight(Math.round(this.elements.gameRoot.getBoundingClientRect().width));
     this.syncRendererToGameRoot();
     layoutPreviews(
       this.activePreviews,
@@ -306,13 +343,49 @@ export class GalleryTab {
       this.elements.gameRoot,
       this.currentMode
     );
+    this.updateVisiblePreviews();
   }
 
-  private updateStageHeight(): void {
+  private readonly scheduleVisibilityUpdate = (): void => {
+    if (this.visibilityFrame !== null) return;
+    this.visibilityFrame = window.requestAnimationFrame(() => {
+      this.visibilityFrame = null;
+      this.updateVisiblePreviews();
+    });
+  };
+
+  private updateVisiblePreviews(): void {
+    if (this.activePreviews.length === 0) return;
+    const stage = this.elements.gameRoot.getBoundingClientRect();
+    const viewportTop = window.visualViewport?.offsetTop ?? 0;
+    const viewportBottom = viewportTop + (window.visualViewport?.height ?? window.innerHeight);
+
+    for (const preview of this.activePreviews) {
+      const bounds = getCachedSymbolBounds(preview.definition, preview.spine);
+      // Keep space for glow and particles beyond the fitted body. Visibility
+      // changes are measured on scroll/resize, never inside the animation loop.
+      const top = stage.top + preview.spine.y + bounds.y * preview.spine.scale.y - 100;
+      const bottom = top + bounds.height * preview.spine.scale.y + 200;
+      const visible = bottom >= viewportTop && top <= viewportBottom;
+
+      if (visible && !preview.host.renderable && this.currentAnimation === "Win") {
+        const track = preview.spine.state.getTrack(0);
+        if (track) {
+          track.trackTime = Math.min(this.loopElapsedSeconds.get(preview) ?? 0, this.getAnimationDuration(preview));
+          track.mixTime = track.mixDuration;
+          track.setAnimationLast(track.trackTime);
+          preview.spine.update(0);
+        }
+      }
+      preview.host.renderable = visible;
+    }
+  }
+
+  private updateStageHeight(width: number): void {
     const height = getGalleryStageHeight(
       this.activePreviews.length,
       this.currentMode,
-      this.app.screen.width,
+      width,
       window.innerWidth,
       window.innerHeight
     );
@@ -347,6 +420,11 @@ export class GalleryTab {
 
   private notifyStateChange(): void {
     this.onStateChange?.(this.getRouteState());
+  }
+
+  private hasRenderedCurrentState(): boolean {
+    return this.renderedState?.mode === this.currentMode
+      && this.renderedState.selectedSymbolId === this.selectedSymbolId;
   }
 
   private destroyPreviews(): void {

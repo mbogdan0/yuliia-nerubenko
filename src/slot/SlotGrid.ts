@@ -6,7 +6,7 @@ import {
   CELL_W,
   REEL_STOP_DELAY,
   REEL_STOP_DELAY_JITTER,
-  ROW_COUNT,
+  slotGridHeight,
   slotGridWidth,
   SPIN_MIN_DURATION
 } from "./config";
@@ -48,14 +48,15 @@ export class SlotGrid {
     definitions: SymbolDefinition[],
     private readonly layer: Container,
     private readonly app: Application,
-    private readonly reelCount: number
+    private readonly reelCount: number,
+    private readonly rowCount: number
   ) {
     this.definitions = definitions;
     this.gridRoot = new Container();
     this.layer.addChild(this.gridRoot);
 
     const gridW = slotGridWidth(this.reelCount);
-    const gridH = ROW_COUNT * CELL_H;
+    const gridH = slotGridHeight(this.rowCount);
 
     // Background panel behind the reels.
     const bg = new Graphics()
@@ -69,7 +70,7 @@ export class SlotGrid {
     this.gridRoot.addChild(viewport);
 
     for (let i = 0; i < this.reelCount; i++) {
-      const reel = new Reel(definitions);
+      const reel = new Reel(definitions, this.rowCount);
       reel.x = i * CELL_W;
       this.reels.push(reel);
       viewport.addChild(reel);
@@ -90,7 +91,7 @@ export class SlotGrid {
 
     // Win highlight — a neat gold frame around a winning row, hidden until a win.
     // Inset within the row so adjacent winning rows never touch/overlap.
-    for (let row = 0; row < ROW_COUNT; row++) {
+    for (let row = 0; row < this.rowCount; row++) {
       const highlight = new Container();
       const rect = { x: WIN_HIGHLIGHT_PAD, y: row * CELL_H + WIN_HIGHLIGHT_PAD, w: gridW - WIN_HIGHLIGHT_PAD * 2, h: CELL_H - WIN_HIGHLIGHT_PAD * 2 };
       const glow = new Graphics().roundRect(rect.x, rect.y, rect.w, rect.h, WIN_HIGHLIGHT_RADIUS);
@@ -110,18 +111,18 @@ export class SlotGrid {
     this.gridRoot.addChild(frame);
   }
 
-  private waitSeconds(sec: number): Promise<void> {
+  waitSeconds(sec: number): Promise<void> {
     return new Promise((resolve) => {
       this.pendingTimers.push({ remaining: sec, resolve });
     });
   }
 
-  async spin(mode: SpinMode = "random"): Promise<SymbolId[][]> {
+  async spin(mode: SpinMode, jokerWinEligible: boolean): Promise<SymbolId[][]> {
     for (const reel of this.reels) reel.spin();
 
     await this.waitSeconds(SPIN_MIN_DURATION / 1000);
 
-    const result = createSpinResult(mode, this.definitions, this.reelCount);
+    const result = createSpinResult(mode, this.definitions, this.reelCount, this.rowCount, jokerWinEligible);
 
     // Stops overlap: each reel BEGINS stopping on a fixed stagger while the
     // previous one is still decelerating, instead of waiting for it to settle.
@@ -141,7 +142,7 @@ export class SlotGrid {
 
   getVisibleResult(): SymbolId[][] {
     return this.reels.map((_, col) =>
-      Array.from({ length: ROW_COUNT }, (_, row) => {
+      Array.from({ length: this.rowCount }, (_, row) => {
         const symbolId = this.getVisibleCell(col, row).currentSymbolId;
         if (symbolId === null) {
           throw new Error(`Visible slot cell is missing a symbol at col ${col}, row ${row}.`);
@@ -186,7 +187,8 @@ export class SlotGrid {
     const layout = calculateSlotGridLayout(
       this.app.screen.width,
       this.app.screen.height,
-      slotGridWidth(this.reelCount)
+      slotGridWidth(this.reelCount),
+      slotGridHeight(this.rowCount)
     );
 
     this.gridRoot.scale.set(layout.scale);
@@ -194,7 +196,7 @@ export class SlotGrid {
     this.gridRoot.y = layout.y;
   }
 
-  /** Tear down the grid's display objects so SlotTab can rebuild it at a new reel count. */
+  /** Tear down the grid's display objects so SlotTab can rebuild it for a new layout. */
   destroy(): void {
     this.pendingTimers.length = 0;
     this.layer.removeChild(this.gridRoot);

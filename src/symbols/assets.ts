@@ -32,12 +32,12 @@ export async function ensureSpineAssets(
   // One skeleton is shared by both resolutions; only the chosen atlas is loaded.
   // The atlas and skeleton are independent files (their only dependency is at
   // Spine construction time), so every unique asset loads in parallel.
-  const queued = new Set<string>();
   const loads = symbols.map((symbol) => {
-    const promises: Promise<unknown>[] = [];
-    queueAsset(symbol.asset.skeletonAlias, symbol.asset.skeletonSrc, queued, promises);
     const atlas = symbol.asset.atlases[resolution];
-    queueAsset(atlas.atlasAlias, atlas.atlasSrc, queued, promises);
+    const promises = [
+      ensureAsset(symbol.asset.skeletonAlias, symbol.asset.skeletonSrc),
+      ensureAsset(atlas.atlasAlias, atlas.atlasSrc)
+    ];
     return { symbol, promises };
   });
 
@@ -65,13 +65,16 @@ export async function ensureSpineAssets(
 
 const loadingAssets = new Map<string, Promise<unknown>>();
 
-function queueAsset(alias: string, src: string, queued: Set<string>, pending: Promise<unknown>[]): void {
-  if (queued.has(alias) || Assets.cache.has(alias) || loadingAssets.has(alias)) {
-    return;
+function ensureAsset(alias: string, src: string): Promise<unknown> {
+  if (Assets.cache.has(alias)) {
+    return Promise.resolve(Assets.cache.get(alias));
   }
-  queued.add(alias);
+
+  const loading = loadingAssets.get(alias);
+  if (loading) return loading;
+
   Assets.add({ alias, src });
   const p = Assets.load(alias).finally(() => loadingAssets.delete(alias));
   loadingAssets.set(alias, p);
-  pending.push(p);
+  return p;
 }

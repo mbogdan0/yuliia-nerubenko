@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <title>Yuliia Nerubenko Portfolio Demo</title>
   </head>
@@ -13,8 +13,8 @@
       </section>
 
       <nav class="tab-nav" aria-label="Application tabs">
-        <button class="tab-button is-active" type="button" data-tab="gallery">Gallery</button>
-        <button class="tab-button" type="button" data-tab="slot-demo">Slot Demo</button>
+        <button class="tab-button is-active" type="button" data-tab="gallery" aria-pressed="true">Gallery</button>
+        <button class="tab-button" type="button" data-tab="slot-demo" aria-pressed="false">Slot Demo</button>
       </nav>
 
       <div class="stage-shell">
@@ -22,8 +22,8 @@
 
         <div class="slot-demo-ui" aria-label="Slot demo controls and artist credit">
           <div id="slot-controls" class="slot-controls is-hidden">
-            <button id="spin-button" class="spin-button" type="button">Spin</button>
-            <button id="spin-win-button" class="spin-button spin-win-button" type="button">Spin & Win</button>
+            <button id="spin-button" class="spin-button" type="button" disabled>Spin</button>
+            <button id="spin-win-button" class="spin-button spin-win-button" type="button" disabled>Spin & Win</button>
           </div>
 
           <aside class="artist-badge" aria-label="Artist credit">
@@ -43,8 +43,8 @@
             <div class="settings-section primary-section" aria-label="Animation selector">
               <h2>Animation</h2>
               <div class="segmented-control">
-                <button class="control-button" type="button" data-animation="Idle">Idle</button>
-                <button class="control-button is-active" type="button" data-animation="Win">Win</button>
+                <button class="control-button" type="button" data-animation="Idle" aria-pressed="false">Idle</button>
+                <button class="control-button is-active" type="button" data-animation="Win" aria-pressed="true">Win</button>
               </div>
             </div>
           </div>

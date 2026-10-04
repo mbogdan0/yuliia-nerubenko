@@ -1,140 +1,231 @@
-import { Application, type Ticker } from "pixi.js";
+import { Application, Assets, UPDATE_PRIORITY, type Ticker } from "pixi.js";
 import { getAppDomRefs } from "./dom";
-import { GalleryTab } from "./gallery/GalleryTab";
+import type { GalleryTab, GalleryRouteState } from "./gallery/GalleryTab";
 import { createAppLayers } from "./layers";
-import { completeLoading, showLoadingError } from "./loadingScreen";
+import { completeLoading, setStageLoading, showLoadingError, showStageLoadingError } from "./loadingScreen";
 import { reportError } from "./reportError";
 import { buildRouteHash, parseRouteHash, type AppTab, type RouteState } from "./router";
-import { JokerPopup } from "./slot/JokerPopup";
-import { SlotTab } from "./slot/SlotTab";
+import type { SlotTab } from "./slot/SlotTab";
+import { ensureSpineAssets } from "./symbols/assets";
+import { getDefaultSymbol, symbolDefinitions, symbolsById } from "./symbols/definitions";
 import { applyActiveTab, bindTabButtons } from "./tabs";
 import "./style.css";
 
 const dom = getAppDomRefs();
-
 const app = new Application();
 const layers = createAppLayers();
 
-let activeTab: AppTab = "gallery";
-let isApplyingHash = false;
+let requestedRoute = parseRouteHash(window.location.hash);
+let activeTab: AppTab = requestedRoute.tab;
+let isApplyingRoute = false;
+let routeGeneration = 0;
+let viewReady = false;
+let hasRenderedView = false;
 let resizeFrame: number | null = null;
-
-const gallery = new GalleryTab(app, layers.previewLayer, dom.galleryElements, (state) => {
-  if (!isApplyingHash && activeTab === "gallery") {
-    setRouteHash({ tab: "gallery", gallery: state });
-  }
-});
-
-const jokerPopup = new JokerPopup(app, layers.popupLayer, dom.appRoot);
-const slotDemo = new SlotTab(app, layers.slotLayer, dom.slotButtons, {
-  gameRoot: dom.gameRoot,
-  stageShell: dom.stageShell
-}, jokerPopup);
-
-function switchTab(tabId: AppTab, updateHash = true): void {
-  activeTab = tabId;
-  slotDemo.setActive(tabId === "slot-demo");
-
-  applyActiveTab(tabId, {
-    dom,
-    layers,
-    onGalleryResize: () => gallery.onResize(),
-    onSlotResize: () => slotDemo.onResize()
-  });
-
-  if (updateHash && !isApplyingHash) {
-    setRouteHash(tabId === "gallery" ? { tab: "gallery", gallery: gallery.getRouteState() } : { tab: "slot-demo" });
-  }
-}
-
-bindTabButtons(dom.tabButtons, switchTab);
+let galleryInitialization: Promise<GalleryTab> | null = null;
+let slotInitialization: Promise<SlotTab> | null = null;
+let galleryReady = false;
+let slotReady = false;
+let gallery: GalleryTab | null = null;
+let slotDemo: SlotTab | null = null;
+let galleryRoute: GalleryRouteState = requestedRoute.tab === "gallery"
+  ? requestedRoute.gallery
+  : { mode: "all", selectedSymbolId: getDefaultSymbol().id };
 
 function setRouteHash(route: RouteState): void {
   const nextHash = buildRouteHash(route);
-  if (window.location.hash !== nextHash) {
-    window.location.hash = nextHash;
+  if (window.location.hash !== nextHash) window.location.hash = nextHash;
+}
+
+async function ensureGalleryReady(state: GalleryRouteState): Promise<GalleryTab> {
+  galleryInitialization ??= import("./gallery/GalleryTab").then(async ({ GalleryTab }) => {
+    const instance = gallery ??= new GalleryTab(app, layers.previewLayer, dom.galleryElements, (nextState) => {
+      galleryRoute = nextState;
+      if (!isApplyingRoute && activeTab === "gallery") {
+        requestedRoute = { tab: "gallery", gallery: nextState };
+        setRouteHash(requestedRoute);
+      }
+    });
+    await instance.init(state);
+    galleryReady = true;
+    return instance;
+  }).catch((error: unknown) => {
+    galleryInitialization = null;
+    throw error;
+  });
+  return galleryInitialization;
+}
+
+async function ensureSlotReady(): Promise<SlotTab> {
+  slotInitialization ??= Promise.all([
+    import("./slot/SlotTab"),
+    import("./slot/JokerPopup")
+  ]).then(async ([{ SlotTab }, { JokerPopup }]) => {
+    const instance = slotDemo ??= new SlotTab(app, layers.slotLayer, dom.slotButtons, {
+      gameRoot: dom.gameRoot,
+      stageShell: dom.stageShell
+    }, new JokerPopup(app, layers.popupLayer, dom.appRoot));
+    await instance.init();
+    slotReady = true;
+    return instance;
+  }).catch((error: unknown) => {
+    slotInitialization = null;
+    throw error;
+  });
+  return slotInitialization;
+}
+
+async function showRoute(route: RouteState, updateHash = false): Promise<void> {
+  if ((viewReady || isApplyingRoute) && buildRouteHash(route) === buildRouteHash(requestedRoute)) {
+    if (updateHash) setRouteHash(route);
+    return;
+  }
+
+  const generation = ++routeGeneration;
+  const tabChanged = route.tab !== activeTab;
+  requestedRoute = route;
+  activeTab = route.tab;
+  isApplyingRoute = true;
+  viewReady = false;
+  dom.galleryPanel.inert = true;
+  dom.gameRoot.setAttribute("aria-label", route.tab === "gallery" ? "Animated symbol gallery" : "Animated slot demo");
+  slotDemo?.setActive(false);
+  setStageLoading(dom.gameRoot, true);
+
+  if (route.tab === "gallery") galleryRoute = route.gallery;
+  if (updateHash) setRouteHash(route);
+
+  applyActiveTab(route.tab, {
+    dom,
+    layers,
+    onGalleryResize: () => { if (galleryReady) gallery?.onResize(); },
+    onSlotResize: () => { if (slotReady) slotDemo?.onResize(); }
+  });
+  if (tabChanged) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+
+  try {
+    if (route.tab === "gallery") {
+      const readyGallery = await ensureGalleryReady(route.gallery);
+      if (generation !== routeGeneration) return;
+      await readyGallery.applyRouteState(route.gallery);
+    } else {
+      await ensureSlotReady();
+    }
+    if (generation !== routeGeneration) return;
+
+    slotDemo?.setActive(route.tab === "slot-demo");
+    viewReady = true;
+    resizeActiveTab();
+
+    // Resize callbacks run first, then present a real animation frame before
+    // removing the loader. Previews start transparent until their first update.
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        if (generation === routeGeneration) {
+          tickActiveTab(app.ticker);
+          app.render();
+        }
+        resolve();
+      });
+    });
+    if (generation !== routeGeneration) return;
+
+    setStageLoading(dom.gameRoot, false);
+    dom.galleryPanel.inert = route.tab !== "gallery";
+    if (!hasRenderedView) {
+      hasRenderedView = true;
+      completeLoading(dom.loadingScreen);
+      performance.mark("app-ready");
+      performance.measure("app-startup", { start: 0, end: "app-ready" });
+    }
+  } catch (error) {
+    reportError(error);
+    if (generation !== routeGeneration) return;
+
+    viewReady = false;
+    setStageLoading(dom.gameRoot, false);
+    if (hasRenderedView) {
+      showStageLoadingError(dom.gameRoot, () => { void showRoute(requestedRoute); });
+    } else {
+      showLoadingError(dom.loadingScreen);
+    }
+  } finally {
+    if (generation === routeGeneration) isApplyingRoute = false;
   }
 }
 
 function tickActiveTab(ticker: Ticker): void {
-  if (activeTab === "gallery") gallery.tick(ticker);
-  else slotDemo.tick(ticker);
+  if (activeTab === "gallery" && galleryReady && viewReady) gallery?.tick(ticker);
+  // A hidden spin must finish its own timers and release its controls. Its layer
+  // is invisible, so this adds no rendering work to the gallery.
+  if (slotReady && ((activeTab === "slot-demo" && viewReady) || slotDemo?.needsTick)) slotDemo?.tick(ticker);
 }
 
 function resizeActiveTab(): void {
-  if (activeTab === "gallery") gallery.onResize();
-  else slotDemo.onResize();
+  if (activeTab === "gallery" && galleryReady) gallery?.onResize();
+  else if (activeTab === "slot-demo" && slotReady) slotDemo?.onResize();
 }
 
 function scheduleActiveTabResize(): void {
-  if (resizeFrame !== null) {
-    return;
-  }
-
+  if (resizeFrame !== null) return;
   resizeFrame = window.requestAnimationFrame(() => {
     resizeFrame = null;
     resizeActiveTab();
   });
 }
 
-async function applyRouteFromHash(): Promise<void> {
-  isApplyingHash = true;
-  const route = parseRouteHash(window.location.hash);
-
-  try {
-    if (route.tab === "slot-demo") {
-      switchTab("slot-demo", false);
-      return;
-    }
-
-    switchTab("gallery", false);
-    await gallery.applyRouteState(route.gallery);
-  } finally {
-    isApplyingHash = false;
+function syncPageVisibility(): void {
+  if (document.hidden) {
+    app.ticker.stop();
+  } else {
+    app.ticker.start();
+    scheduleActiveTabResize();
   }
 }
 
 async function bootstrap(): Promise<void> {
+  // Spine registers its rendering pipe when the requested tab module loads.
+  // Register it before Pixi initializes the renderer's pipes.
+  const initialRoute = parseRouteHash(window.location.hash);
+  await Promise.all([
+    initialRoute.tab === "gallery" ? import("./gallery/GalleryTab") : import("./slot/SlotTab"),
+    // Every URL names its format explicitly; no AVIF, WebP or video probing is
+    // needed before loading the PNG atlases and binary skeletons.
+    Assets.init({ skipDetections: true })
+  ]);
+  // Fetch the requested textures while Pixi loads and initializes its backend.
+  // Tab initialization joins these promises before constructing any Spines.
+  const assetRoute = parseRouteHash(window.location.hash);
+  const initialSymbols = assetRoute.tab === "gallery" && assetRoute.gallery.mode === "focus"
+    ? [symbolsById.get(assetRoute.gallery.selectedSymbolId) ?? getDefaultSymbol()]
+    : symbolDefinitions;
+  void ensureSpineAssets(initialSymbols, assetRoute.tab === "slot-demo" ? "low" : "high").catch(reportError);
   await app.init({
-    // The resolution:2 backing store already supersamples edges, so MSAA is
-    // redundant fill-rate cost — the main driver of slot stutter on large
-    // high-DPR tablets. Disable it and keep resolution for crispness.
+    // Supersampling is set by each view; MSAA would add redundant fill cost.
     antialias: false,
     autoDensity: true,
     backgroundAlpha: 0,
     resolution: 1
   });
 
-  // Steady 60fps cadence: ProMotion (120Hz) doubles per-second render work which
-  // the slot can't sustain on tablets. Motion stays correct — updates are
-  // time-based (ticker.deltaMS), not per-frame.
+  // Time-based updates preserve motion at a steady 60fps on high-refresh screens.
   app.ticker.maxFPS = 60;
-
   dom.gameRoot.appendChild(app.canvas);
   app.stage.addChild(layers.stageRoot);
-
-  // All controls are DOM buttons; nothing on the canvas is interactive. Disable
-  // hit testing for the whole scene graph so Pixi's event system doesn't traverse
-  // every symbol Spine on each pointer move over the canvas.
   app.stage.eventMode = "none";
+  app.ticker.add(tickActiveTab, undefined, UPDATE_PRIORITY.NORMAL);
 
-  await gallery.init();
-  await slotDemo.init();
-  await applyRouteFromHash();
-  completeLoading(dom.loadingScreen);
-
-  app.ticker.add((ticker) => {
-    tickActiveTab(ticker);
+  bindTabButtons(dom.tabButtons, (tab) => {
+    void showRoute(tab === "gallery" ? { tab, gallery: galleryRoute } : { tab }, true);
   });
 
-  // iOS animates the address bar without always firing window 'resize'; the visual
-  // viewport does. Debounce both resize sources into the active tab's manual sizing.
+  window.addEventListener("hashchange", () => { void showRoute(parseRouteHash(window.location.hash)); });
   window.addEventListener("resize", scheduleActiveTabResize);
   window.visualViewport?.addEventListener("resize", scheduleActiveTabResize);
+  document.addEventListener("visibilitychange", syncPageVisibility);
+  syncPageVisibility();
 
-  window.addEventListener("hashchange", () => {
-    applyRouteFromHash().catch(reportError);
-  });
+  await showRoute(parseRouteHash(window.location.hash));
 }
 
 bootstrap().catch((error) => {

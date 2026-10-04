@@ -1,20 +1,36 @@
 # Yuliia Nerubenko Portfolio Demo
 
-Work-in-progress portfolio presentation for animated slot symbols by Yuliia Nerubenko.
+Interactive Spine animation gallery and slot demo by Yuliia Nerubenko, built with
+PixiJS and Vite for GitHub Pages.
 
-The project includes an interactive gallery and a simple reel demo for previewing Spine animations in the browser. It is currently prepared as a Vite-based GitHub Pages demo.
-
-## Development
+## Run locally
 
 ```bash
 npm ci
 npm run dev
 ```
 
-## Verification
+Open the local URL printed by Vite. To preview the production build:
+
+```bash
+npm run build
+npm run preview
+```
+
+## Check changes
 
 ```bash
 npm run typecheck
 npm run lint
 npm run build
 ```
+
+## Project notes
+
+The Joker prize becomes available after its popup finishes background preparation.
+Other spins and wins stay available while it loads or if the download fails.
+
+See the [symbol instructions](AGENTS.md#symbols) for asset setup and registration.
+
+The [performance review](PERFORMANCE_REVIEW.md) records local measurements,
+verification scope, and remaining asset export limits.

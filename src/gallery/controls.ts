@@ -68,13 +68,33 @@ export function bindControls(
 export function updateControls(elements: GalleryDomElements, state: GalleryControlState): void {
   const allButton = elements.symbolButtonsContainer.querySelector<HTMLButtonElement>("[data-mode='all']");
   allButton?.classList.toggle("is-active", state.mode === "all");
+  allButton?.setAttribute("aria-pressed", String(state.mode === "all"));
+  let selectedButton = state.mode === "all" ? allButton : null;
 
   for (const button of elements.animationButtons) {
-    button.classList.toggle("is-active", button.dataset.animation === state.animation);
+    const isActive = button.dataset.animation === state.animation;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
   }
 
   for (const button of getSymbolButtons(elements)) {
-    button.classList.toggle("is-active", state.mode === "focus" && button.dataset.symbol === state.selectedSymbolId);
+    const isActive = state.mode === "focus" && button.dataset.symbol === state.selectedSymbolId;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+    if (isActive) selectedButton = button;
+  }
+
+  // Scroll only the chip strip. scrollIntoView would also move the page when
+  // controls are sticky or a selection shortens the gallery below them.
+  const container = elements.symbolButtonsContainer;
+  if (selectedButton && container.scrollWidth > container.clientWidth) {
+    const containerBounds = container.getBoundingClientRect();
+    const buttonBounds = selectedButton.getBoundingClientRect();
+    if (buttonBounds.left < containerBounds.left) {
+      container.scrollLeft += buttonBounds.left - containerBounds.left - 4;
+    } else if (buttonBounds.right > containerBounds.right) {
+      container.scrollLeft += buttonBounds.right - containerBounds.right + 4;
+    }
   }
 }
 

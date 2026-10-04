@@ -1,4 +1,4 @@
-import { Spine } from "@esotericsoftware/spine-pixi-v8";
+import { Spine, SpineTexture, type TextureAtlas } from "@esotericsoftware/spine-pixi-v8";
 import { Assets, Container, Graphics, type Application } from "pixi.js";
 import { animationMixDurationSeconds } from "../gallery/playback";
 import { isGalleryDesktopViewport } from "../gallery/responsive";
@@ -15,23 +15,30 @@ type PopupState = "hidden" | "intro" | "idle" | "outro";
 type PopupBounds = { x: number; y: number; width: number; height: number };
 
 let popupAssetsPromise: Promise<void> | null = null;
+let popupAssetsRegistered = false;
 
 export function preloadJokerPopupAssets(): Promise<void> {
   if (popupAssetsPromise) return popupAssetsPromise;
 
-  Assets.add({
-    alias: POPUP_SKELETON_ALIAS,
-    src: `${POPUP_ASSET_BASE}/skeleton.skel?v=${__APP_VERSION__}`
-  });
-  Assets.add({
-    alias: POPUP_ATLAS_ALIAS,
-    src: `${POPUP_ASSET_BASE}/atlas.atlas?v=${__APP_VERSION__}`
-  });
+  if (!popupAssetsRegistered) {
+    Assets.add({
+      alias: POPUP_SKELETON_ALIAS,
+      src: `${POPUP_ASSET_BASE}/skeleton.skel?v=${__APP_VERSION__}`
+    });
+    Assets.add({
+      alias: POPUP_ATLAS_ALIAS,
+      src: `${POPUP_ASSET_BASE}/atlas.atlas?v=${__APP_VERSION__}`
+    });
+    popupAssetsRegistered = true;
+  }
 
   popupAssetsPromise = Promise.all([
     Assets.load(POPUP_SKELETON_ALIAS),
     Assets.load(POPUP_ATLAS_ALIAS)
-  ]).then(() => undefined);
+  ]).then(() => undefined).catch((error: unknown) => {
+    popupAssetsPromise = null;
+    throw error;
+  });
 
   return popupAssetsPromise;
 }
@@ -50,7 +57,6 @@ export class JokerPopup {
   private autoCloseElapsed = 0;
   private resolveShow: (() => void) | null = null;
   private activeShowPromise: Promise<void> | null = null;
-  private showRequestId = 0;
 
   constructor(
     private readonly app: Application,
@@ -84,29 +90,62 @@ export class JokerPopup {
     this.overlay.destroy({ children: true });
   }
 
+  get isReady(): boolean {
+    return this.state === "hidden" && this.spine !== null && !this.spine.destroyed
+      && this.popupBounds !== null && this.spine.parent === this.overlay;
+  }
+
   show(shouldShow: () => boolean = () => true): Promise<void> {
     if (this.activeShowPromise) return this.activeShowPromise;
 
-    const requestId = ++this.showRequestId;
-    this.activeShowPromise = this.showInternal(requestId, shouldShow).finally(() => {
+    this.activeShowPromise = this.showInternal(shouldShow).finally(() => {
       this.activeShowPromise = null;
     });
 
     return this.activeShowPromise;
   }
 
-  private async showInternal(requestId: number, shouldShow: () => boolean): Promise<void> {
+  async prepare(shouldPrepare: () => boolean = () => true): Promise<void> {
+    if (this.isReady) return;
     await preloadJokerPopupAssets();
-    if (requestId !== this.showRequestId || !shouldShow()) return;
+    if (!shouldPrepare() || this.state !== "hidden" || this.isReady) return;
 
+    // Download completion is outside the original idle callback. Wait for a
+    // fresh idle opportunity before uploading the texture and sampling bounds.
+    await new Promise<void>((resolve) => {
+      if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(() => resolve(), { timeout: 2000 });
+      } else {
+        window.setTimeout(resolve, 0);
+      }
+    });
+    if (!shouldPrepare() || this.state !== "hidden" || this.isReady) return;
+
+    const renderer = this.app.renderer;
+    if ("texture" in renderer) {
+      const atlas = Assets.get<TextureAtlas>(POPUP_ATLAS_ALIAS);
+      for (const page of atlas.pages) {
+        if (page.texture instanceof SpineTexture) renderer.texture.initSource(page.texture.texture.source);
+      }
+    }
     this.createSpine();
+  }
+
+  private showInternal(shouldShow: () => boolean): Promise<void> {
+    // Prizes are eligible only after background preparation. Showing the popup
+    // never starts or waits for a download during a completed spin.
+    if (!this.isReady || !this.spine || !shouldShow()) return Promise.resolve();
+
     this.layout();
     this.setDomVisible(true);
     this.overlay.visible = true;
     this.state = "intro";
     this.stateElapsed = 0;
     this.autoCloseElapsed = 0;
-    this.spine?.state.setAnimation(0, "intro", false);
+    this.spine.state.clearTracks();
+    this.spine.skeleton.setupPose();
+    this.spine.state.setAnimation(0, "intro", false);
+    this.spine.update(0);
 
     return new Promise((resolve) => {
       this.resolveShow = resolve;
@@ -114,7 +153,6 @@ export class JokerPopup {
   }
 
   hideImmediately(): void {
-    this.showRequestId++;
     if (this.state === "hidden") {
       this.resolveShow?.();
       this.resolveShow = null;
@@ -208,8 +246,6 @@ export class JokerPopup {
     this.autoCloseElapsed = 0;
     this.overlay.visible = false;
     this.setDomVisible(false);
-    this.destroySpine();
-    this.popupBounds = null;
     this.resolveShow?.();
     this.resolveShow = null;
   }

@@ -4,10 +4,22 @@ import { getCachedSymbolBounds } from "../symbols/bounds";
 import { symbolsById, getDefaultSymbol } from "../symbols/definitions";
 import { createManualSpine } from "../symbols/spine";
 import type { SymbolId } from "../types";
-import { CELL_H, CELL_W, SLOT_RESOLUTION } from "./config";
+import {
+  CELL_H,
+  CELL_W,
+  REEL_COUNT_COMPACT,
+  REEL_COUNT_DESKTOP,
+  ROW_COUNT_COMPACT,
+  ROW_COUNT_DESKTOP,
+  SLOT_RESOLUTION
+} from "./config";
 
 // Fraction of the cell dimensions the spine may fill.
 const DEFAULT_CELL_FILL_FACTOR = 0.82;
+const MAX_POOLED_SPINES_PER_SYMBOL = Math.max(
+  REEL_COUNT_DESKTOP * (ROW_COUNT_DESKTOP + 2),
+  REEL_COUNT_COMPACT * (ROW_COUNT_COMPACT + 2)
+);
 
 const pool = new Map<SymbolId, Spine[]>();
 
@@ -57,6 +69,10 @@ export function releaseCellSpine(id: SymbolId, spine: Spine): void {
   if (!spines) {
     spines = [];
     pool.set(id, spines);
+  }
+  if (spines.length >= MAX_POOLED_SPINES_PER_SYMBOL) {
+    spine.destroy({ children: true });
+    return;
   }
   spines.push(spine);
 }

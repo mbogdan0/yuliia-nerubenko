@@ -8,6 +8,7 @@ const MIN_STAGE_HEIGHT = 220;
 
 const DESKTOP_GRID_COLUMNS = 3;
 const COMPACT_GRID_COLUMNS = 2;
+const COMPACT_WIDE_GRID_MIN_WIDTH = 600;
 
 const COMPACT_FOCUS_STAGE_MIN_HEIGHT = 300;
 const COMPACT_FOCUS_STAGE_MAX_HEIGHT = 430;
@@ -18,10 +19,9 @@ const PREVIEW_FILL_H = 0.78;
 const COMPACT_FOCUS_SIZE_FACTOR = 0.8;
 
 // --- Symbol sizing & spacing ---
-// Symbols are sized by WIDTH (so they stay a consistent, generous size regardless
-// of how many there are) and capped at MAX. The canvas then grows tall enough to
-// hold every row, so large symbol sets simply scroll the page. Logical CSS px
-// (DPR-independent — autoDensity handles density, do NOT scale by devicePixelRatio).
+// Width sets the upper size limit. Desktop also fits the available viewport
+// height, down to a readable floor; larger sets then scroll. Sizes are logical
+// CSS pixels (autoDensity handles DPR).
 //
 // Each constant is a [compact, desktop] tuple resolved at layout time via
 // resolveGallerySizing(). Index 0 = compact/mobile (viewport < 900 px or portrait),
@@ -33,20 +33,36 @@ const GALLERY_SYMBOL_MAX_DISPLAY_SIZE: Record<GalleryMode, ResponsivePair> = {
   focus: [240, 250],
 };
 // Below this, drop a column so symbols don't get cramped on narrow widths.
-const GALLERY_SYMBOL_MIN_DISPLAY_SIZE: ResponsivePair = [120, 160];
-// The only spacing knob: the minimum gap between (and around) symbols. Everything
-// else is automatic — leftover room is distributed space-evenly per axis, so the
-// horizontal and vertical gaps are computed independently and need not match.
-const GALLERY_SYMBOL_MIN_GAP: ResponsivePair = [35, 55];
+const GALLERY_SYMBOL_MIN_DISPLAY_SIZE: ResponsivePair = [104, 128];
+// Minimum gaps between and around symbols. Short desktop viewports use a smaller
+// vertical gap; remaining room is distributed evenly per axis.
+const GALLERY_SYMBOL_MIN_GAP: ResponsivePair = [22, 30];
 
-type GallerySizing = { maxDisplaySize: number; minDisplaySize: number; minGap: number };
+type GallerySizing = {
+  maxDisplaySize: number;
+  minDisplaySize: number;
+  minGap: number;
+  minRowGap: number;
+  maxGridHeight: number | null;
+};
 
-function resolveGallerySizing(currentMode: GalleryMode, isCompact: boolean): GallerySizing {
+function resolveGallerySizing(
+  currentMode: GalleryMode,
+  isCompact: boolean,
+  viewportWidth: number,
+  viewportHeight: number
+): GallerySizing {
   const i = isCompact ? 0 : 1;
+  // Match the desktop CSS padding, navigation height, and row gap. Keep a
+  // readable size floor: larger symbol sets can still grow and scroll.
+  const desktopPadding = clamp(viewportWidth * 0.02, 12, 28);
+  const desktopGap = clamp(viewportWidth * 0.02, 12, 24);
   return {
     maxDisplaySize: GALLERY_SYMBOL_MAX_DISPLAY_SIZE[currentMode][i],
     minDisplaySize: GALLERY_SYMBOL_MIN_DISPLAY_SIZE[i],
     minGap: GALLERY_SYMBOL_MIN_GAP[i],
+    minRowGap: isCompact ? GALLERY_SYMBOL_MIN_GAP[0] : viewportHeight < 700 ? 20 : 30,
+    maxGridHeight: isCompact ? null : Math.max(0, viewportHeight - desktopPadding * 2 - 56 - desktopGap)
   };
 }
 
@@ -78,11 +94,11 @@ export function getGalleryStageHeight(
   // Natural grid height at the minimum gap. Compact uses it as the canvas height
   // (the page scrolls); desktop uses it as a min-height floor, so the stage fills
   // the viewport for small sets and grows past it — scrolling — for large ones.
-  const sizing = resolveGallerySizing(currentMode, isCompact);
+  const sizing = resolveGallerySizing(currentMode, isCompact, viewportWidth, viewportHeight);
   const availableWidth = Math.max(MIN_STAGE_WIDTH, areaWidth);
-  const preferredColumns = isCompact ? COMPACT_GRID_COLUMNS : DESKTOP_GRID_COLUMNS;
+  const preferredColumns = getPreferredColumns(isCompact, availableWidth);
   const grid = computeGrid(itemCount, availableWidth, 0, preferredColumns, sizing);
-  return Math.round(grid.rows * grid.symbolSize + (grid.rows + 1) * sizing.minGap);
+  return Math.round(grid.rows * grid.symbolSize + (grid.rows + 1) * sizing.minRowGap);
 }
 
 export function layoutPreviews(
@@ -100,7 +116,7 @@ export function layoutPreviews(
   // sidebar grid the canvas (app.screen) is far narrower than the window, so it
   // must not be what decides compact-vs-desktop.
   const isCompact = isGalleryCompactViewport(window.innerWidth, window.innerHeight);
-  const sizing = resolveGallerySizing(currentMode, isCompact);
+  const sizing = resolveGallerySizing(currentMode, isCompact, window.innerWidth, window.innerHeight);
 
   if (currentMode === "focus") {
     const centerX = area.x + area.width / 2;
@@ -121,7 +137,7 @@ export function layoutPreviews(
     previews.length,
     area.width,
     area.height,
-    isCompact ? COMPACT_GRID_COLUMNS : DESKTOP_GRID_COLUMNS,
+    getPreferredColumns(isCompact, area.width),
     sizing
   );
 
@@ -173,6 +189,10 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+function getPreferredColumns(isCompact: boolean, width: number): number {
+  return isCompact && width < COMPACT_WIDE_GRID_MIN_WIDTH ? COMPACT_GRID_COLUMNS : DESKTOP_GRID_COLUMNS;
+}
+
 // Largest column count (down from preferred) whose symbols still clear the minimum
 // display size by width. Fewer columns mean larger symbols, so narrow widths trade
 // columns for size rather than shrinking everything.
@@ -192,8 +212,8 @@ function resolveColumns(
   return 1;
 }
 
-// Largest symbol edge that fits `columns` cells across `availableWidth` keeping at
-// least minGap on both sides of every cell (space-evenly: columns + 1 gap slots).
+// Largest symbol edge that fits `columns` cells across `availableWidth` keeping
+// minGap between cells and at the edges (columns + 1 gap slots).
 function maxSymbolForColumns(availableWidth: number, columns: number, minGap: number): number {
   return (availableWidth - minGap * (columns + 1)) / columns;
 }
@@ -205,20 +225,27 @@ function computeGrid(
   preferredColumns: number,
   sizing: GallerySizing
 ): GalleryGridMetrics {
-  const { maxDisplaySize, minDisplaySize, minGap } = sizing;
+  const { maxDisplaySize, minDisplaySize, minGap, minRowGap, maxGridHeight } = sizing;
   const safeItemCount = Math.max(1, itemCount);
   const columns = resolveColumns(safeItemCount, availableWidth, preferredColumns, minDisplaySize, minGap);
   const rows = Math.ceil(safeItemCount / columns);
 
-  // Width-driven size, capped. Height never shrinks symbols — the canvas grows
-  // instead — so large sets keep a readable size and just scroll.
-  const symbolSize = Math.max(1, Math.min(maxSymbolForColumns(availableWidth, columns, minGap), maxDisplaySize));
+  // Fit ordinary desktop grids to the viewport. The size floor keeps larger
+  // collections readable instead of squeezing every row onto one screen.
+  const heightLimit = maxGridHeight === null
+    ? maxDisplaySize
+    : Math.max(minDisplaySize, (maxGridHeight - (rows + 1) * minRowGap) / rows);
+  const symbolSize = Math.max(1, Math.min(
+    maxSymbolForColumns(availableWidth, columns, minGap),
+    maxDisplaySize,
+    heightLimit
+  ));
 
   // Distribute leftover space-evenly on each axis independently (edge gaps included),
   // never below the minimum. Vertical gaps grow only when the canvas is taller than
   // the grid needs (small sets on tall screens), which simply centers the rows.
   const gapX = Math.max(minGap, (availableWidth - columns * symbolSize) / (columns + 1));
-  const gapY = Math.max(minGap, (availableHeight - rows * symbolSize) / (rows + 1));
+  const gapY = Math.max(minRowGap, (availableHeight - rows * symbolSize) / (rows + 1));
 
   return { columns, rows, symbolSize, gapX, gapY };
 }

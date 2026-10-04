@@ -2,7 +2,6 @@ import { Container } from "pixi.js";
 import { Cell } from "./Cell";
 import {
   CELL_H,
-  ROW_COUNT,
   SPIN_ACCEL_TIME,
   SPIN_CELLS_PER_SEC,
   SPIN_SPEED_JITTER,
@@ -21,8 +20,6 @@ import type { SymbolDefinition, SymbolId } from "../types";
 
 type ReelState = "idle" | "windup" | "spinning" | "stopping" | "stopped";
 
-// Cell pool: ROW_COUNT visible + one buffer above + one below for smooth scroll-in/out.
-const POOL_SIZE = ROW_COUNT + 2;
 const MOVING_SPINE_UPDATE_INTERVAL = 1 / 12;
 
 function randomSymbol(definitions: SymbolDefinition[]): SymbolId {
@@ -60,6 +57,8 @@ export class Reel extends Container {
   private cellIndex: number[] = [];        // strip index currently shown by each pool cell
   private strip = new Map<number, SymbolId>();
   private readonly definitions: SymbolDefinition[];
+  // Visible rows plus one buffer above and below for smooth scroll-in/out.
+  private readonly poolSize: number;
 
   private state: ReelState = "idle";
   private scroll = 0;
@@ -83,10 +82,11 @@ export class Reel extends Container {
   private stopOvershoot = STOP_OVERSHOOT;   // jittered per stop
   private resolveStop: (() => void) | null = null;
 
-  constructor(definitions: SymbolDefinition[]) {
+  constructor(definitions: SymbolDefinition[], private readonly rowCount: number) {
     super();
     this.definitions = definitions;
-    for (let i = 0; i < POOL_SIZE; i++) {
+    this.poolSize = this.rowCount + 2;
+    for (let i = 0; i < this.poolSize; i++) {
       const cell = new Cell();
       this.cells.push(cell);
       this.cellIndex.push(Number.NaN);
@@ -107,15 +107,19 @@ export class Reel extends Container {
   /** Position every pool cell at its strip index around the current window. */
   private layoutCells(): void {
     const lo = Math.floor(this.scroll) - 1; // top buffer index
-    for (let c = 0; c < POOL_SIZE; c++) {
-      // The unique strip index in [lo, lo+POOL_SIZE-1] with index ≡ c (mod POOL_SIZE).
-      const index = lo + mod(c - lo, POOL_SIZE);
+    for (let c = 0; c < this.poolSize; c++) {
+      // The unique strip index in the buffered window with index ≡ c (mod poolSize).
+      const index = lo + mod(c - lo, this.poolSize);
       const cell = this.cells[c];
       if (this.cellIndex[c] !== index) {
         this.cellIndex[c] = index;
         cell.setSymbol(this.symbolAt(index), { resetIdleAnimation: !this.reduceMotionWork });
       }
       cell.y = (index - this.scroll) * CELL_H;
+      // Buffer cells are needed only while the strip is moving. Hiding them at
+      // rest also avoids rendering and updating their offscreen skeletons.
+      cell.visible = (this.state !== "idle" && this.state !== "stopped")
+        || (cell.y >= 0 && cell.y < this.rowCount * CELL_H);
     }
   }
 
@@ -140,7 +144,10 @@ export class Reel extends Container {
       this.state = "spinning";
     }
 
-    for (const cell of this.cells) cell.playIdle();
+    for (const cell of this.cells) {
+      cell.visible = true;
+      cell.playIdle();
+    }
   }
 
   /**
@@ -153,8 +160,9 @@ export class Reel extends Container {
     // end. A random extra cell or two varies the deceleration distance per stop.
     const extra = randInt(0, STOP_EXTRA_CELLS_MAX);
     const base = SPIN_STEP < 0 ? Math.floor(this.scroll) : Math.ceil(this.scroll);
-    const landing = base + SPIN_STEP * (STOP_MIN_CELLS + extra);
-    for (let r = 0; r < ROW_COUNT; r++) {
+    const minimumTravel = Math.max(STOP_MIN_CELLS, this.rowCount);
+    const landing = base + SPIN_STEP * (minimumTravel + extra);
+    for (let r = 0; r < this.rowCount; r++) {
       const si = landing + r;
       this.strip.set(si, result[r]);
       // layoutCells() skips cells whose cellIndex hasn't changed, so a pool cell
@@ -174,9 +182,12 @@ export class Reel extends Container {
     // easeOutBack: f'(0) = stopOvershoot + 3  ⇒  v(0) = (s+3)·distance/duration.
     const distance = Math.abs(landing - this.scroll);
     const v = Math.max(this.speed, this.spinSpeed);
+    // A taller window needs an extra cell of travel to stage the result ahead.
+    // Extend only its upper limit so the velocity match survives the longer stop.
+    const extraTravelDuration = ((this.stopOvershoot + 3) * (minimumTravel - STOP_MIN_CELLS)) / v;
     this.stopDuration = Math.min(
       Math.max(((this.stopOvershoot + 3) * distance) / v, STOP_DURATION_MIN),
-      STOP_DURATION_MAX
+      STOP_DURATION_MAX + extraTravelDuration
     );
     this.stopElapsed = 0;
     this.state = "stopping";
@@ -234,15 +245,17 @@ export class Reel extends Container {
     const spineDt = this.getSpineUpdateDelta(dt, isMoving);
     if (spineDt === null) return;
 
-    for (const cell of this.cells) cell.update(spineDt);
+    for (const cell of this.cells) {
+      if (cell.visible) cell.update(spineDt);
+    }
   }
 
   /** Lock the reel exactly onto its result, then fire the landing hook. */
   private settle(): void {
     this.scroll = this.stopTargetPos; // exact integer alignment
+    this.state = "stopped";
     this.layoutCells();
     this.pruneStrip();
-    this.state = "stopped";
     this.land();
     const cb = this.resolveStop;
     this.resolveStop = null;
@@ -250,10 +263,8 @@ export class Reel extends Container {
   }
 
   /**
-   * Fires once at the exact frame the reel locks onto its result — the seam for a
-   * future "Land" impact (a screen/reel shake or squash, or a per-symbol Land clip
-   * on the visible rows via getVisibleCell(0..ROW_COUNT-1)). For now it just
-   * restores the looping Idle on every pool cell.
+   * Restore Idle at the exact frame the reel locks onto its result. Optional
+   * Land clips in some exports remain unused under the engine's Idle/Win contract.
    */
   private land(): void {
     for (const cell of this.cells) cell.playLand();
@@ -280,7 +291,7 @@ export class Reel extends Container {
   /** Drop cached symbols outside the resting window to bound memory growth. */
   private pruneStrip(): void {
     const lo = this.stopTargetPos - 1;
-    const hi = this.stopTargetPos + ROW_COUNT;
+    const hi = this.stopTargetPos + this.rowCount;
     for (const key of this.strip.keys()) {
       if (key < lo || key > hi) this.strip.delete(key);
     }

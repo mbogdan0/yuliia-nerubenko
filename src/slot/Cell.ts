@@ -1,5 +1,5 @@
 import { Spine } from "@esotericsoftware/spine-pixi-v8";
-import { Container } from "pixi.js";
+import { Container, type DestroyOptions } from "pixi.js";
 import { randomAnimationVariant, stableSlotIdleAnimation } from "../symbols/animations";
 import { getDefaultSymbol, symbolsById } from "../symbols/definitions";
 import {
@@ -55,6 +55,16 @@ export class Cell extends Container {
     return this.activeId;
   }
 
+  override destroy(options?: DestroyOptions): void {
+    if (this.activeId !== null && this.activeSpine) {
+      releaseCellSpine(this.activeId, this.activeSpine);
+    }
+    this.activeId = null;
+    this.activeSpine = null;
+    this.resetAnimationState();
+    super.destroy(options);
+  }
+
   playIdle(): void {
     if (!this.activeSpine) return;
     if (this.activeAnimation === "Idle") return;
@@ -96,19 +106,22 @@ export class Cell extends Container {
   }
 
   /**
-   * Impact accent played the instant a reel locks this cell into place.
-   * No dedicated "Land" spine clip exists yet, so this currently just returns the
-   * symbol to its looping Idle — swap in a non-looping "Land" animation (then chain
-   * back to Idle) here when the animator provides one.
+   * Restore Idle when the reel locks this cell into place. Some exports include
+   * optional Land clips, but the engine intentionally plays only Idle and Win.
    */
   playLand(): void {
-    // TODO(land): play the "Land" impact clip when available.
     this.playIdle();
   }
 
   update(dt: number): void {
     // Hot path: runs for every pool cell every frame.
     if (!this.activeSpine) return;
+
+    const track = this.activeSpine.state.getTrack(0);
+    if (track?.animation?.duration === 0 && !track.mixingFrom && !track.next
+      && this.activeSpine.skeleton.physics.length === 0) {
+      return;
+    }
 
     this.activeSpine.update(dt);
     if (this.isJoker()) this.updateJokerState(dt);
