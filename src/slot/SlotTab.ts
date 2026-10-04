@@ -20,6 +20,7 @@ import { JokerPopup } from "./JokerPopup";
 import { checkHorizontalSymbolRows, checkHorizontalWins } from "./paylines";
 import type { SpinMode } from "./results";
 import { SlotGrid } from "./SlotGrid";
+import { SlotSounds } from "./sounds";
 
 // Let the big-win clip finish, then wait this long before covering the reels.
 const JOKER_POPUP_POST_WIN_BUFFER_MS = 200;
@@ -42,7 +43,6 @@ export class SlotTab {
   private isCompactMode = false;
   private reelCount: number | null = null;
   private rowCount: number | null = null;
-  private pendingRebuild = false;
   private resizeFrame: number | null = null;
   private activationFrame: number | null = null;
   private popupPreloadHandle: number | null = null;
@@ -52,6 +52,7 @@ export class SlotTab {
   private isActive = false;
   private isSpinning = false;
   private spinGeneration = 0;
+  private readonly sounds = new SlotSounds();
 
   constructor(
     private readonly app: Application,
@@ -63,8 +64,8 @@ export class SlotTab {
 
   async init(): Promise<void> {
     this.loadedDefinitions = await ensureSpineAssets(symbolDefinitions, SLOT_RESOLUTION);
-    if (this.loadedDefinitions.length === 0) {
-      throw new Error("No slot symbols could be loaded. Please try again.");
+    if (this.loadedDefinitions.length < 2) {
+      throw new Error("Not enough slot symbols could be loaded. Please try again.");
     }
 
     this.isCompactMode = this.shouldUseCompactSlotMode();
@@ -100,6 +101,10 @@ export class SlotTab {
     });
   }
 
+  onVisibilityChange(): void {
+    this.sounds.setPageVisible(!document.hidden);
+  }
+
   tick(ticker: Ticker): void {
     const deltaSeconds = ticker.deltaMS / 1000;
     this.grid?.update(deltaSeconds);
@@ -112,6 +117,7 @@ export class SlotTab {
 
   setActive(active: boolean): void {
     this.isActive = active;
+    this.sounds.setActive(active);
 
     if (this.activationFrame !== null) {
       window.cancelAnimationFrame(this.activationFrame);
@@ -193,25 +199,12 @@ export class SlotTab {
     // The ResizeObserver watches #game-root in both modes, so gate here.
     if (!this.isActive) return;
 
+    // Keep the landed board and its win animation through a rotation. New grid
+    // dimensions take effect at the next spin; the existing board still scales
+    // to fit the current viewport immediately.
+    this.isCompactMode = this.shouldUseCompactSlotMode();
+    if (this.reelCount !== null && this.rowCount !== null) this.setStageSizingVars(this.reelCount, this.rowCount);
     this.syncRendererToGameRoot();
-
-    // Rotation and shorter portrait viewports can change the grid dimensions.
-    // Rebuild to match, but never mid-spin, or the awaited
-    // spin promises would be torn down and leave the controls disabled. Defer to
-    // the spin's finally block in that case.
-    const nextCompact = this.shouldUseCompactSlotMode();
-    const nextReelCount = resolveReelCount(nextCompact);
-    const nextRowCount = resolveRowCount(nextCompact, window.innerWidth, window.innerHeight);
-    const rebuildRequired = nextReelCount !== this.reelCount || nextRowCount !== this.rowCount;
-    this.isCompactMode = nextCompact;
-    if (this.isSpinning) {
-      // Returning to the existing dimensions cancels a deferred rebuild, so the
-      // landed result remains visible after a temporary rotation or resize.
-      this.pendingRebuild = rebuildRequired;
-    } else {
-      this.pendingRebuild = false;
-      if (rebuildRequired) this.buildGrid();
-    }
 
     this.grid?.setReducedMotionWork(this.isCompactMode);
     this.grid?.onResize();
@@ -252,25 +245,28 @@ export class SlotTab {
   private async spin(mode: SpinMode): Promise<void> {
     if (!this.grid || !this.isActive || this.isSpinning) return;
 
+    this.isCompactMode = this.shouldUseCompactSlotMode();
+    const reelCount = resolveReelCount(this.isCompactMode);
+    const rowCount = resolveRowCount(this.isCompactMode, window.innerWidth, window.innerHeight);
+    if (reelCount !== this.reelCount || rowCount !== this.rowCount) {
+      this.buildGrid();
+      this.grid?.setReducedMotionWork(this.isCompactMode);
+      this.grid?.onResize();
+    }
+
     const generation = ++this.spinGeneration;
     const jokerWinEligible = this.jokerPopup.isReady;
     this.isSpinning = true;
     this.syncControlsDisabled();
     this.grid.clearWins();
+    this.sounds.playSpin();
 
     try {
       const result = await this.grid.spin(mode, jokerWinEligible);
       await this.applyWins(result, generation, jokerWinEligible);
     } finally {
+      this.sounds.finishSpin();
       this.isSpinning = false;
-      // A breakpoint flip during the spin was deferred to here; apply it now that
-      // the grid is idle and its spin promises have all resolved.
-      if (this.pendingRebuild) {
-        this.pendingRebuild = false;
-        this.buildGrid();
-        this.grid?.setReducedMotionWork(this.isCompactMode);
-        this.grid?.onResize();
-      }
       this.syncControlsDisabled();
       this.schedulePopupPreload();
     }
@@ -291,12 +287,12 @@ export class SlotTab {
     const canShowJokerWin = jokerWinEligible && this.jokerPopup.isReady;
     const winRows = checkHorizontalWins(result).filter((row) => canShowJokerWin || !jokerRows.includes(row));
     const awardedJokerRows = canShowJokerWin ? jokerRows : [];
-    const highlightRows = winRows.filter((row) => !jokerRows.includes(row));
 
     // One weighted pick per joker row, shared by every cell in that row so they stay in sync.
     const jokerRowAnimations = new Map(awardedJokerRows.map((row) => [row, pickJokerWinAnimation()]));
 
-    this.grid.showWins(highlightRows);
+    this.grid.showWins(winRows);
+    if (winRows.length > 0) this.sounds.playWin();
     for (const row of winRows) {
       for (let col = 0; col < result.length; col++) {
         const animation = jokerRowAnimations.get(row);
@@ -307,8 +303,8 @@ export class SlotTab {
     this.applyJokerFailures(result, awardedJokerRows);
 
     if (awardedJokerRows.length > 0) {
-      const firstJokerRow = awardedJokerRows[0];
-      await this.grid.waitSeconds(this.jokerPopupDelayMs(firstJokerRow, jokerRowAnimations.get(firstJokerRow)) / 1000);
+      const popupDelayMs = Math.max(...awardedJokerRows.map((row) => this.jokerPopupDelayMs(row, jokerRowAnimations.get(row))));
+      await this.grid.waitSeconds(popupDelayMs / 1000);
       if (this.isCurrentSpin(generation) && this.jokerPopup.isReady) {
         await this.jokerPopup.show(() => this.isCurrentSpin(generation));
       }

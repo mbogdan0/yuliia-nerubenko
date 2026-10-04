@@ -118,11 +118,11 @@ export class SlotGrid {
   }
 
   async spin(mode: SpinMode, jokerWinEligible: boolean): Promise<SymbolId[][]> {
+    // Validate the result before starting any reel or timer.
+    const result = createSpinResult(mode, this.definitions, this.reelCount, this.rowCount, jokerWinEligible);
     for (const reel of this.reels) reel.spin();
 
     await this.waitSeconds(SPIN_MIN_DURATION / 1000);
-
-    const result = createSpinResult(mode, this.definitions, this.reelCount, this.rowCount, jokerWinEligible);
 
     // Stops overlap: each reel BEGINS stopping on a fixed stagger while the
     // previous one is still decelerating, instead of waiting for it to settle.

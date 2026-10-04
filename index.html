@@ -3,13 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <style>
+      html, body { margin: 0; background: #101211; }
+      .loading-screen { position: fixed; inset: 0; z-index: 20; background: #101211; }
+      .loading-content { opacity: 0; }
+    </style>
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <title>Yuliia Nerubenko Portfolio Demo</title>
   </head>
   <body>
     <main id="app">
       <section id="loading-screen" class="loading-screen" aria-live="polite" aria-label="Application loading status">
-        <div class="loading-indicator" aria-hidden="true"></div>
+        <div class="loading-content">
+          <div class="loading-indicator" aria-hidden="true"><span></span><span></span><span></span></div>
+          <p class="loading-hint">A little magic is on the way</p>
+        </div>
       </section>
 
       <nav class="tab-nav" aria-label="Application tabs">

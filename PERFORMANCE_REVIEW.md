@@ -41,6 +41,18 @@ Browser checks covered phones, landscape phones, tablets, and short laptop
 viewports, along with deep links, rapid navigation, resize during a spin,
 leaving Slot during a spin, and popup dismissal.
 
+Additional browser checks confirmed Joker's gold win frame before and after popup
+dismissal on mobile and desktop. They also covered blocked popup requests released
+during a spin, resizing during and after a win, and new grid dimensions at the next
+spin. These scenarios produced no browser errors. Loader presentation checks
+covered delayed appearance, cancellation on quick loads, restored canvas opacity,
+and reduced motion. Production checks also covered several Joker rows with
+different win clips, popup rotation, and navigation away while it was visible.
+
+Injected preview-construction and first-frame render failures reached Retry and
+recovered. A partial Slot load with only Joker offered Reload instead of starting
+an unavailable prize.
+
 The mobile layout gives priority to larger artwork. Tall portrait screens add
 rows; short and landscape screens keep fewer rows and smaller controls.
 
@@ -58,7 +70,7 @@ or unmatched body-slot names.
 - Joker's high symbol texture dominates a full Gallery load. Further large
   reductions need a lighter export or better lossless packing.
 
-The motion is suitable for a polished animation demo. A full game's feedback
-would also need sound and authored landing and anticipation cues.
+The motion is suitable for a polished animation demo. A full game would need
+richer authored landing and anticipation feedback.
 Physical iOS/Android devices, Safari, thermal throttling, and long battery runs
 were not measured.

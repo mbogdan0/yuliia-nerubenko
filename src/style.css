@@ -80,16 +80,37 @@ a:focus-visible {
   background:
     linear-gradient(90deg, rgb(var(--rgb-white) / 4%) 1px, transparent 1px),
     linear-gradient(180deg, rgb(var(--rgb-white) / 3%) 1px, transparent 1px),
-    rgb(13 15 14 / 96%);
+    #101211;
   background-size:
     42px 42px,
     42px 42px,
     auto;
   text-align: center;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 150ms ease-out, visibility 0s;
 }
 
 .loading-screen.is-loaded {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 150ms ease-out, visibility 0s 150ms;
+}
+
+.loading-content {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  animation: loading-reveal 160ms ease-out 200ms both;
+}
+
+.loading-screen.is-loaded .loading-content {
   display: none;
+}
+
+.loading-screen.is-loaded .loading-indicator span {
+  animation: none;
 }
 
 /* Full-screen transparent hit area: a click/tap anywhere dismisses the joker popup. */
@@ -119,7 +140,7 @@ a:focus-visible {
   line-height: 1.08;
 }
 
-.loading-screen span {
+.loading-screen > span {
   max-width: min(420px, calc(100vw - 48px));
   color: var(--color-text-secondary);
   font-size: 14px;
@@ -129,23 +150,54 @@ a:focus-visible {
 }
 
 .loading-indicator {
-  width: 52px;
-  height: 52px;
-  border: 4px solid rgb(var(--rgb-gold) / 22%);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
-  animation: loading-spin 0.85s linear infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 32px;
 }
 
-@keyframes loading-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.loading-indicator span {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--color-accent-light);
+  box-shadow: 0 0 18px rgb(var(--rgb-gold) / 18%);
+  animation: loading-drift 1.6s ease-in-out infinite;
+}
+
+.loading-indicator span:nth-child(2) {
+  animation-delay: 160ms;
+}
+
+.loading-indicator span:nth-child(3) {
+  animation-delay: 320ms;
+}
+
+.loading-hint {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  animation: loading-reveal 240ms ease-out 1.6s both;
+}
+
+@keyframes loading-drift {
+  0%, 100% { transform: translateY(3px) rotate(45deg); opacity: 0.35; }
+  50% { transform: translateY(-3px) rotate(45deg); opacity: 0.9; }
+}
+
+@keyframes loading-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loading-indicator {
-    animation-duration: 1.6s;
+  .loading-indicator span {
+    animation: none;
+    transform: rotate(45deg);
+    opacity: 0.65;
   }
 }
 
@@ -159,26 +211,34 @@ a:focus-visible {
   width: 100%;
   height: 100%;
   touch-action: pan-y pinch-zoom !important;
+  transition: opacity 140ms ease-out;
 }
 
 #game-root[aria-busy="true"] canvas {
   opacity: 0.35;
+  transition: opacity 160ms ease-out 200ms;
 }
 
-#game-root[aria-busy="true"]::after {
+.stage-loading-status {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  inset: 0;
   z-index: 1;
-  width: 38px;
-  height: 38px;
-  margin: -19px;
-  border: 3px solid rgb(var(--rgb-gold) / 22%);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
-  content: "";
+  display: none;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  padding: 16px;
+  text-align: center;
   pointer-events: none;
-  animation: loading-spin 0.85s linear infinite;
+  animation: loading-reveal 160ms ease-out 200ms both;
+}
+
+#game-root[aria-busy="true"] .stage-loading-status {
+  display: grid;
+}
+
+.loading-screen:not(.is-loaded) ~ .stage-shell #game-root .stage-loading-status {
+  display: none;
 }
 
 .stage-load-error {
@@ -195,7 +255,8 @@ a:focus-visible {
   text-align: center;
 }
 
-.stage-load-error button {
+.stage-load-error button,
+.loading-retry {
   min-height: 44px;
   padding: 0 24px;
   border: 1px solid var(--color-accent);

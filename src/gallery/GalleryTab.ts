@@ -3,7 +3,7 @@ import { syncRendererToElement } from "../rendererSizing";
 import { setStageLoading, showStageLoadingError } from "../loadingScreen";
 import { reportError } from "../reportError";
 import { SLOT_MAX_RENDER_RESOLUTION } from "../slot/config";
-import type { AnimationName, GalleryMode, SymbolDefinition, SymbolId, SymbolPreview, SymbolResolution } from "../types";
+import type { AnimationName, GalleryMode, SymbolId, SymbolPreview, SymbolResolution } from "../types";
 import { nextAnimationVariant } from "../symbols/animations";
 import { ensureSpineAssets } from "../symbols/assets";
 import { getCachedSymbolBounds } from "../symbols/bounds";
@@ -169,11 +169,42 @@ export class GalleryTab {
 
     const symbols = this.getSymbolsForCurrentMode();
 
-    let loaded: SymbolDefinition[];
+    const nextPreviews: SymbolPreview[] = [];
+    let adoptedPreviews = false;
     try {
-      loaded = await ensureSpineAssets(symbols, GALLERY_RESOLUTION);
+      const loaded = await ensureSpineAssets(symbols, GALLERY_RESOLUTION);
       if (loaded.length === 0) throw new Error("No gallery symbols could be loaded.");
+      if (generation !== this.rebuildGeneration) return;
+
+      // Keep the current view until every replacement Spine can be constructed.
+      for (const symbol of loaded) nextPreviews.push(createSymbolPreview(symbol, GALLERY_RESOLUTION));
+      this.destroyPreviews();
+      this.activePreviews = nextPreviews;
+      adoptedPreviews = true;
+      this.activePreviews.forEach((preview) => {
+        this.applyAnimation(preview, 0);
+        preview.spine.update(0);
+      });
+      this.updateLoopCycleDuration();
+
+      for (const preview of this.activePreviews) {
+        this.previewLayer.addChild(preview.host);
+      }
+
+      this.syncControls();
+      this.layout();
+      this.renderedState = this.getRouteState();
+      if (this.previewLayer.parent?.visible) setStageLoading(this.elements.gameRoot, false);
     } catch (error) {
+      if (adoptedPreviews) {
+        this.destroyPreviews();
+        this.renderedState = null;
+      } else {
+        for (const preview of nextPreviews) {
+          preview.spine.destroy({ children: true });
+          preview.host.destroy({ children: true });
+        }
+      }
       if (generation === this.rebuildGeneration && this.previewLayer.parent?.visible) {
         showStageLoadingError(this.elements.gameRoot, () => {
           this.rebuildGallery().then(() => this.notifyStateChange()).catch(reportError);
@@ -181,25 +212,6 @@ export class GalleryTab {
       }
       throw error;
     }
-    if (generation !== this.rebuildGeneration) return;
-
-    this.destroyPreviews();
-    this.activePreviews = loaded.map((symbol) => createSymbolPreview(symbol, GALLERY_RESOLUTION));
-    this.animationDurationSeconds.clear();
-    this.activePreviews.forEach((preview) => {
-      this.applyAnimation(preview, 0);
-      preview.spine.update(0);
-    });
-    this.updateLoopCycleDuration();
-
-    for (const preview of this.activePreviews) {
-      this.previewLayer.addChild(preview.host);
-    }
-
-    this.renderedState = this.getRouteState();
-    this.syncControls();
-    this.layout();
-    if (this.previewLayer.parent?.visible) setStageLoading(this.elements.gameRoot, false);
   }
 
   private transitionAnimation(): void {

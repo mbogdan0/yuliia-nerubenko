@@ -27,8 +27,16 @@ npm run build
 
 ## Project notes
 
-The Joker prize becomes available after its popup finishes background preparation.
-Other spins and wins stay available while it loads or if the download fails.
+`Spin & Win` creates one winning row and prevents accidental wins on other rows.
+It follows the symbol order, skipping Joker until its popup is prepared. Other
+spins and wins stay available while the popup loads or if its download fails.
+
+Resizing scales the current grid and preserves the landed result and gold win
+frame. Reel and row counts adapt when the next spin begins.
+
+Both loading screens delay their small animated indicators and captions, respect
+reduced motion, and finish without an extra wait. Failed views offer Retry;
+startup failures offer Reload.
 
 See the [symbol instructions](AGENTS.md#symbols) for asset setup and registration.
 

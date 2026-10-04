@@ -9,7 +9,7 @@ function randomItem<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function nextGuaranteedWinSymbol(definitions: SymbolDefinition[], jokerWinEligible: boolean): SymbolId | null {
+function nextGuaranteedWinSymbol(definitions: SymbolDefinition[], jokerWinEligible: boolean): SymbolId {
   // Advance through the same ordered set even while the optional Joker prize is
   // unavailable, so readiness changes do not shift the remaining demo sequence.
   for (let checked = 0; checked < definitions.length; checked++) {
@@ -17,7 +17,7 @@ function nextGuaranteedWinSymbol(definitions: SymbolDefinition[], jokerWinEligib
     guaranteedWinCursor++;
     if (jokerWinEligible || symbol.id !== JOKER_SYMBOL_ID) return symbol.id;
   }
-  return null;
+  throw new Error("No available symbol can receive the guaranteed prize.");
 }
 
 export function createRandomResult(
@@ -26,18 +26,22 @@ export function createRandomResult(
   rowCount: number,
   jokerWinEligible: boolean
 ): SymbolId[][] {
+  const otherSymbols = jokerWinEligible
+    ? []
+    : definitions.filter((symbol) => symbol.id !== JOKER_SYMBOL_ID);
+  if (!jokerWinEligible && otherSymbols.length === 0) {
+    throw new Error("No non-Joker symbols are available while the Joker prize is not ready.");
+  }
+
   const result = Array.from({ length: reelCount }, () =>
     Array.from({ length: rowCount }, () => randomItem(definitions).id)
   );
 
   if (!jokerWinEligible) {
-    const otherSymbols = definitions.filter((symbol) => symbol.id !== JOKER_SYMBOL_ID);
-    if (otherSymbols.length > 0) {
-      for (let row = 0; row < rowCount; row++) {
-        if (result.every((col) => col[row] === JOKER_SYMBOL_ID)) {
-          const replacementColumn = Math.floor(Math.random() * reelCount);
-          result[replacementColumn][row] = randomItem(otherSymbols).id;
-        }
+    for (let row = 0; row < rowCount; row++) {
+      if (result.every((col) => col[row] === JOKER_SYMBOL_ID)) {
+        const replacementColumn = Math.floor(Math.random() * reelCount);
+        result[replacementColumn][row] = randomItem(otherSymbols).id;
       }
     }
   }
@@ -51,17 +55,30 @@ export function createGuaranteedWinResult(
   rowCount: number,
   jokerWinEligible: boolean
 ): SymbolId[][] {
+  if (new Set(definitions.map((symbol) => symbol.id)).size < 2) {
+    throw new Error("Guaranteed wins need at least two available symbols to keep other rows non-winning.");
+  }
+
   const result = createRandomResult(definitions, reelCount, rowCount, jokerWinEligible);
   const winningSymbol = nextGuaranteedWinSymbol(definitions, jokerWinEligible);
-  // A partial asset failure can leave only Joker available. The reels still
-  // land normally; SlotTab skips the unavailable prize instead of blocking.
-  if (winningSymbol === null) return result;
 
   // Use the middle line, choosing the lower of the two middle lines for four rows.
   const winningRow = Math.floor(rowCount / 2);
 
   for (let col = 0; col < reelCount; col++) {
     result[col][winningRow] = winningSymbol;
+  }
+
+  // The demo order should show one prize at a time. Keep every symbol available
+  // as a filler, but break accidental wins outside the chosen line.
+  for (let row = 0; row < rowCount; row++) {
+    if (row === winningRow) continue;
+    const rowSymbol = result[0][row];
+    if (!result.every((col) => col[row] === rowSymbol)) continue;
+
+    const otherSymbols = definitions.filter((symbol) => symbol.id !== rowSymbol);
+    const replacementColumn = Math.floor(Math.random() * reelCount);
+    result[replacementColumn][row] = randomItem(otherSymbols).id;
   }
 
   return result;

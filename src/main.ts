@@ -119,13 +119,17 @@ async function showRoute(route: RouteState, updateHash = false): Promise<void> {
 
     // Resize callbacks run first, then present a real animation frame before
     // removing the loader. Previews start transparent until their first update.
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
       window.requestAnimationFrame(() => {
-        if (generation === routeGeneration) {
-          tickActiveTab(app.ticker);
-          app.render();
+        try {
+          if (generation === routeGeneration) {
+            tickActiveTab(app.ticker);
+            app.render();
+          }
+          resolve();
+        } catch (error) {
+          reject(error);
         }
-        resolve();
       });
     });
     if (generation !== routeGeneration) return;
@@ -175,6 +179,7 @@ function scheduleActiveTabResize(): void {
 }
 
 function syncPageVisibility(): void {
+  slotDemo?.onVisibilityChange();
   if (document.hidden) {
     app.ticker.stop();
   } else {
