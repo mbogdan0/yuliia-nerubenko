@@ -142,6 +142,7 @@ async function showRoute(route: RouteState, updateHash = false): Promise<void> {
       performance.mark("app-ready");
       performance.measure("app-startup", { start: 0, end: "app-ready" });
     }
+    if (route.tab === "slot-demo") slotDemo?.onPresented();
   } catch (error) {
     reportError(error);
     if (generation !== routeGeneration) return;

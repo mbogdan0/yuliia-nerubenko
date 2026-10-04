@@ -4,18 +4,28 @@ import { JOKER_SYMBOL_ID } from "../symbols/jokerState";
 export type SpinMode = "random" | "guaranteed-win";
 
 let guaranteedWinCursor = 0;
+let jokerWinPending = false;
 
 function randomItem<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
 function nextGuaranteedWinSymbol(definitions: SymbolDefinition[], jokerWinEligible: boolean): SymbolId {
-  // Advance through the same ordered set even while the optional Joker prize is
-  // unavailable, so readiness changes do not shift the remaining demo sequence.
+  if (jokerWinPending && jokerWinEligible && definitions.some((symbol) => symbol.id === JOKER_SYMBOL_ID)) {
+    jokerWinPending = false;
+    // If the cycle has already returned to Joker, consume that position too.
+    if (definitions[guaranteedWinCursor % definitions.length].id === JOKER_SYMBOL_ID) guaranteedWinCursor++;
+    return JOKER_SYMBOL_ID;
+  }
+
   for (let checked = 0; checked < definitions.length; checked++) {
     const symbol = definitions[guaranteedWinCursor % definitions.length];
     guaranteedWinCursor++;
-    if (jokerWinEligible || symbol.id !== JOKER_SYMBOL_ID) return symbol.id;
+    if (symbol.id === JOKER_SYMBOL_ID && !jokerWinEligible) {
+      jokerWinPending = true;
+      continue;
+    }
+    return symbol.id;
   }
   throw new Error("No available symbol can receive the guaranteed prize.");
 }

@@ -2,10 +2,8 @@ import { Spine, SpineTexture, type TextureAtlas } from "@esotericsoftware/spine-
 import { Assets, Container, Graphics, type Application } from "pixi.js";
 import { animationMixDurationSeconds } from "../gallery/playback";
 import { isGalleryDesktopViewport } from "../gallery/responsive";
+import { cancelPopupAssetLoad, POPUP_ATLAS_ALIAS, POPUP_SKELETON_ALIAS, preloadJokerPopupAssets } from "./popupAssets";
 
-const POPUP_ASSET_BASE = `${import.meta.env.BASE_URL}popups/joker`;
-const POPUP_SKELETON_ALIAS = "jokerPopupSkeleton";
-const POPUP_ATLAS_ALIAS = "jokerPopupAtlas";
 const POPUP_AUTO_CLOSE_SECONDS = 10;
 const POPUP_IDLE_DELAY_SECONDS = 0.25;
 const POPUP_MAX_SCREEN_FILL_COMPACT = 0.96;
@@ -13,35 +11,6 @@ const POPUP_MAX_SCREEN_FILL_DESKTOP = 1.39;
 
 type PopupState = "hidden" | "intro" | "idle" | "outro";
 type PopupBounds = { x: number; y: number; width: number; height: number };
-
-let popupAssetsPromise: Promise<void> | null = null;
-let popupAssetsRegistered = false;
-
-export function preloadJokerPopupAssets(): Promise<void> {
-  if (popupAssetsPromise) return popupAssetsPromise;
-
-  if (!popupAssetsRegistered) {
-    Assets.add({
-      alias: POPUP_SKELETON_ALIAS,
-      src: `${POPUP_ASSET_BASE}/skeleton.skel?v=${__APP_VERSION__}`
-    });
-    Assets.add({
-      alias: POPUP_ATLAS_ALIAS,
-      src: `${POPUP_ASSET_BASE}/atlas.atlas?v=${__APP_VERSION__}`
-    });
-    popupAssetsRegistered = true;
-  }
-
-  popupAssetsPromise = Promise.all([
-    Assets.load(POPUP_SKELETON_ALIAS),
-    Assets.load(POPUP_ATLAS_ALIAS)
-  ]).then(() => undefined).catch((error: unknown) => {
-    popupAssetsPromise = null;
-    throw error;
-  });
-
-  return popupAssetsPromise;
-}
 
 export class JokerPopup {
   private readonly overlay = new Container();
@@ -82,6 +51,7 @@ export class JokerPopup {
 
   /** Tear down the popup: stop it, detach the DOM overlay, and unbind the global key listener. */
   destroy(): void {
+    this.cancelPreparation();
     window.removeEventListener("keydown", this.handleKeyDown);
     this.hideImmediately();
     this.destroySpine();
@@ -129,6 +99,10 @@ export class JokerPopup {
       }
     }
     this.createSpine();
+  }
+
+  cancelPreparation(): void {
+    cancelPopupAssetLoad();
   }
 
   private showInternal(shouldShow: () => boolean): Promise<void> {

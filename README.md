@@ -28,8 +28,13 @@ npm run build
 ## Project notes
 
 `Spin & Win` creates one winning row and prevents accidental wins on other rows.
-It follows the symbol order, skipping Joker until its popup is prepared. Other
-spins and wins stay available while the popup loads or if its download fails.
+It follows the symbol order. If Joker is skipped while its popup prepares, it
+becomes the next guaranteed prize once ready, then the normal order resumes.
+Readiness is checked when a spin starts.
+
+The optional popup loads after the first Slot frame with low network priority.
+Leaving Slot cancels unfinished downloads; returning allows another attempt.
+Other spins and wins stay available if the download is slow or fails.
 
 Resizing scales the current grid and preserves the landed result and gold win
 frame. Reel and row counts adapt when the next spin begins.

@@ -50,6 +50,7 @@ export class SlotTab {
   private popupPreparationPending = false;
   private resizeObserver: ResizeObserver | null = null;
   private isActive = false;
+  private viewPresented = false;
   private isSpinning = false;
   private spinGeneration = 0;
   private readonly sounds = new SlotSounds();
@@ -87,7 +88,7 @@ export class SlotTab {
     this.rowCount = rowCount;
     this.setStageSizingVars(reelCount, rowCount);
     // The aspect ratio changes with the row count. Resize before laying out the
-    // new grid, including a rebuild deferred until the spin finishes.
+    // new grid before its next spin.
     if (this.isActive) this.syncRendererToGameRoot();
   }
 
@@ -103,6 +104,8 @@ export class SlotTab {
 
   onVisibilityChange(): void {
     this.sounds.setPageVisible(!document.hidden);
+    if (document.hidden) this.cancelPopupPreload();
+    else this.schedulePopupPreload();
   }
 
   tick(ticker: Ticker): void {
@@ -117,6 +120,7 @@ export class SlotTab {
 
   setActive(active: boolean): void {
     this.isActive = active;
+    this.viewPresented = false;
     this.sounds.setActive(active);
 
     if (this.activationFrame !== null) {
@@ -136,12 +140,18 @@ export class SlotTab {
     this.activationFrame = window.requestAnimationFrame(() => {
       this.activationFrame = null;
       this.syncControlsDisabled();
-      this.schedulePopupPreload();
     });
   }
 
+  onPresented(): void {
+    if (!this.isActive) return;
+    this.viewPresented = true;
+    this.schedulePopupPreload();
+  }
+
   private schedulePopupPreload(): void {
-    if (!this.isActive || this.popupPreloadHandle !== null || this.popupPreparationPending || this.jokerPopup.isReady) return;
+    if (!this.isActive || !this.viewPresented || document.hidden
+      || this.popupPreloadHandle !== null || this.popupPreparationPending || this.jokerPopup.isReady) return;
 
     const connection = (navigator as Navigator & {
       connection?: { saveData?: boolean; effectiveType?: string };
@@ -152,19 +162,24 @@ export class SlotTab {
 
     const preload = (): void => {
       this.popupPreloadHandle = null;
-      if (!this.isActive || this.isSpinning || this.jokerPopup.isReady) return;
+      if (!this.isActive || !this.viewPresented || document.hidden || this.isSpinning || this.jokerPopup.isReady) return;
       this.popupPreparationPending = true;
       let assetsLoaded = false;
-      this.jokerPopup.prepare(() => this.isActive && !this.isSpinning).then(() => {
+      let cancelled = false;
+      this.jokerPopup.prepare(() => this.isActive && this.viewPresented && !document.hidden && !this.isSpinning).then(() => {
         assetsLoaded = true;
       }).catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          cancelled = true;
+          return;
+        }
         // eslint-disable-next-line no-console
         console.warn("[popup] Joker popup could not be prepared; continuing without Joker wins.", error);
       }).finally(() => {
         this.popupPreparationPending = false;
         // A download can finish during a spin. Prepare its cached assets once
         // idle, including when the spin finished before this promise settled.
-        if (assetsLoaded && this.isActive && !this.isSpinning && !this.jokerPopup.isReady) {
+        if ((assetsLoaded || cancelled) && !this.isSpinning && !this.jokerPopup.isReady) {
           this.schedulePopupPreload();
         }
       });
@@ -177,10 +192,12 @@ export class SlotTab {
   }
 
   private cancelPopupPreload(): void {
-    if (this.popupPreloadHandle === null) return;
-    if (this.popupPreloadUsesIdleCallback) window.cancelIdleCallback(this.popupPreloadHandle);
-    else window.clearTimeout(this.popupPreloadHandle);
+    if (this.popupPreloadHandle !== null) {
+      if (this.popupPreloadUsesIdleCallback) window.cancelIdleCallback(this.popupPreloadHandle);
+      else window.clearTimeout(this.popupPreloadHandle);
+    }
     this.popupPreloadHandle = null;
+    this.jokerPopup.cancelPreparation();
   }
 
   onResize(): void {

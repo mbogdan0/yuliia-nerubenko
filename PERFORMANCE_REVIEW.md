@@ -53,6 +53,14 @@ Injected preview-construction and first-frame render failures reached Retry and
 recovered. A partial Slot load with only Joker offered Reload instead of starting
 an unavailable prize.
 
+Deferred Joker checks covered readiness during a spin and after complete symbol
+cycles, without changing the current result or awarding Joker twice in a row.
+Popup requests started after the first Slot frame with low priority. Leaving Slot
+aborted an unfinished image request, and returning restored preparation.
+Production checks also covered an immediate leave-and-return and simulated page
+visibility changes. Other checks covered recovery after a failed image download
+and texture loading through the native Image path without ImageBitmap.
+
 The mobile layout gives priority to larger artwork. Tall portrait screens add
 rows; short and landscape screens keep fewer rows and smaller controls.
 
